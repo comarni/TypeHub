@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TypeHub - Test de mecanografía minimalista. Mide tu velocidad y precisión." />
+  <title>TypeHub — Test de Mecanografía</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="dark-mode theme-serika">
+  <!-- Banner Superior -->
+  <div class="banner">
+    <p>🎁 Descubre nuestra tienda de <a href="#">merchandising</a></p>
+    <button class="banner-close" aria-label="Cerrar banner">×</button>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <h1 class="logo">⌨️ TypeHub</h1>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-section="test">Test</button>
+      <button class="nav-btn" data-section="leaderboard">Clasificación</button>
+      <button class="nav-btn" data-section="about">About</button>
+      <button class="nav-btn" data-section="settings">⚙️</button>
+      <button class="nav-btn" data-section="login">👤</button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Sección: Test -->
+    <section id="test" class="section active">
+      <div class="test-container">
+        <!-- Panel De Modos -->
+        <div class="modes-panel">
+          <!-- Fila 1: Tipo de contenido -->
+          <div class="mode-row">
+            <div class="mode-toggle">
+              <button class="toggle-btn active" id="typeWords" data-type="words">Palabras</button>
+              <button class="toggle-btn" id="typeTexts" data-type="texts">Textos</button>
+            </div>
+
+            <div class="mode-group">
+              <label for="testLanguage">Idioma:</label>
+              <select id="testLanguage">
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
+              </select>
+            </div>
+
+            <div class="mode-group" id="diffGroup">
+              <label for="difficultySelect">Dificultad:</label>
+              <select id="difficultySelect">
+                <option value="1k">1k palabras</option>
+                <option value="5k">5k palabras</option>
+                <option value="20k">20k palabras</option>
+              </select>
+            </div>
+
+            <div class="mode-group mode-group-categories" id="textCategoryGroup" style="display:none;">
+              <label>Categoría:</label>
+              <div class="category-chips" id="textCategoryChips" role="radiogroup" aria-label="Seleccionar categoría de texto">
+                <button type="button" class="category-chip active" data-category="literature" role="radio" aria-checked="true">Literatura</button>
+                <button type="button" class="category-chip" data-category="science" role="radio" aria-checked="false">Ciencia</button>
+                <button type="button" class="category-chip" data-category="philosophy" role="radio" aria-checked="false">Filosofía</button>
+                <button type="button" class="category-chip" data-category="tech" role="radio" aria-checked="false">Tecnología</button>
+                <button type="button" class="category-chip" data-category="quotes" role="radio" aria-checked="false">Citas célebres</button>
+              </div>
+            </div>
+
+            <div class="mode-group" id="timeGroup">
+              <label for="timeSelect" id="timeLabel">Duración:</label>
+              <select id="timeSelect">
+                <option value="15">15s</option>
+                <option value="30">30s</option>
+                <option value="60" selected>60s</option>
+                <option value="120">120s</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Fila 2: Opciones de palabras -->
+          <div class="options-row" id="wordOptions">
+            <label class="opt-toggle">
+              <input type="checkbox" id="optUppercase" />
+              <span>Mayúsculas</span>
+            </label>
+            <label class="opt-toggle">
+              <input type="checkbox" id="optPunctuation" />
+              <span>Puntuación</span>
+            </label>
+            <label class="opt-toggle">
+              <input type="checkbox" id="optNumbers" />
+              <span>Números</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Stats Superiores -->
+        <div class="test-stats">
+          <div class="stat">
+            <span class="stat-label">WPM</span>
+            <span class="stat-value" id="wpmValue">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">ACC</span>
+            <span class="stat-value" id="accValue">100%</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Tiempo</span>
+            <span class="stat-value" id="timerValue">60s</span>
+          </div>
+        </div>
+
+        <!-- Área de Texto del Test -->
+        <div class="test-area">
+          <div class="text-display" id="textDisplay">
+            Haz clic aquí o comienza a escribir para iniciar el test...
+          </div>
+          <span id="typingCaret" class="typing-caret" aria-hidden="true"></span>
+          <input 
+            type="text" 
+            id="testInput" 
+            class="test-input" 
+            placeholder="Escribe aquí..."
+            aria-label="Campo de entrada del test de mecanografía"
+          />
+        </div>
+
+        <!-- Atajos de Teclado -->
+        <div class="shortcuts">
+          <p><kbd>Tab</kbd> + <kbd>Enter</kbd> para reiniciar</p>
+          <p><kbd>Esc</kbd> para parar</p>
+          <button class="btn btn-primary" id="restartBtn">Reiniciar Test</button>
+        </div>
+
+        <!-- Modal Overlay Resultados -->
+        <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+
+        <!-- Resultados Modal -->
+        <div class="results-modal" id="results" style="display: none;">
+          <button class="modal-close" id="closeResultsBtn" aria-label="Cerrar resultados">×</button>
+          <h2>Resultados</h2>
+
+          <!-- Stats Grid - Formato Monkeytype -->
+          <div class="results-stats-grid">
+            <!-- WPM -->
+            <div class="result-stat-block">
+              <div class="stat-header">wpm</div>
+              <div class="stat-big" id="resultWpmBig">0</div>
+              <div class="stat-small" id="resultWpmSmall">0.00 wpm</div>
+            </div>
+
+            <!-- ACC (Precisión) -->
+            <div class="result-stat-block">
+              <div class="stat-header">acc</div>
+              <div class="stat-big" id="resultAccBig">0%</div>
+              <div class="stat-small" id="resultAccSmall">0.00% 0 correct 0 incorrect</div>
+            </div>
+
+            <!-- Raw WPM -->
+            <div class="result-stat-block">
+              <div class="stat-header">raw wpm</div>
+              <div class="stat-big" id="resultRawWpmBig">0</div>
+              <div class="stat-small" id="resultRawWpmSmall">0.00 wpm</div>
+            </div>
+
+            <!-- Caracteres -->
+            <div class="result-stat-block">
+              <div class="stat-header">characters</div>
+              <div class="stat-small" id="resultCharsBreakdown">0/0/0/0</div>
+              <div class="stat-tiny">correct incorrect extra missed</div>
+            </div>
+
+            <!-- Consistencia -->
+            <div class="result-stat-block">
+              <div class="stat-header">consistency</div>
+              <div class="stat-big" id="resultConsistencyBig">0%</div>
+              <div class="stat-small" id="resultConsistencySmall">0.00%</div>
+            </div>
+
+            <!-- Tiempo -->
+            <div class="result-stat-block">
+              <div class="stat-header">time</div>
+              <div class="stat-big" id="resultTimeBig">0s</div>
+              <div class="stat-small" id="resultTimeSmall">00:00:00</div>
+              <div class="stat-tiny" id="resultTimeExtra">0s afk 0%</div>
+            </div>
+
+            <!-- Test Type -->
+            <div class="result-stat-block">
+              <div class="stat-header">test type</div>
+              <div class="stat-small" id="resultTestType">words</div>
+              <div class="stat-tiny" id="resultTestLanguage">spanish</div>
+            </div>
+          </div>
+
+          <!-- Gráfica de WPM en el tiempo -->
+          <div class="chart-container">
+            <h3>WPM a lo largo del test</h3>
+            <div class="chart-controls">
+              <button class="chart-mode-btn active" data-mode="scale">📈 Escala</button>
+              <button class="chart-mode-btn" data-mode="raw">Raw</button>
+              <button class="chart-mode-btn" data-mode="errors">Errores</button>
+            </div>
+            <canvas id="wpmChart" width="800" height="260"></canvas>
+          </div>
+
+          <!-- Gráfica de Progreso Temporal (solo para usuarios logueados) -->
+          <div class="chart-container" id="progressChartContainer" style="display: none;">
+            <h3>Tu Progreso</h3>
+            <div class="progress-tabs">
+              <button class="progress-tab active" data-period="7days">Últimos 7 días</button>
+              <button class="progress-tab" data-period="30days">Últimos 30 días</button>
+              <button class="progress-tab" data-period="12months">Últimos 12 meses</button>
+              <button class="progress-tab" data-period="alltime">Todo el tiempo</button>
+            </div>
+            <canvas id="progressChart" width="800" height="260"></canvas>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="results-actions">
+            <button class="btn btn-primary" id="nextTestBtn">Siguiente Test</button>
+            <button class="btn btn-secondary" id="repeatTestBtn">Repetir Test</button>
+            <button class="btn btn-secondary" id="retryBtn">Intentar de Nuevo</button>
+          </div>
+
+          <!-- Nota de Sesión -->
+          <p class="results-note" id="resultsNote" style="display: none;">📌 Inicia sesión para guardar tu resultado</p>
+        </div>
+
+        <!-- Modal de Términos de Servicio -->
+        <div class="terms-modal-overlay" id="termsModalOverlay" style="display: none;"></div>
+        <div class="terms-modal" id="termsModal" style="display: none;">
+          <button class="modal-close" id="closeTermsBtn" aria-label="Cerrar términos">×</button>
+          <div class="terms-content">
+            <h2>Términos de Servicio</h2>
+            <p><strong>Última actualización: 11 de marzo de 2026</strong></p>
+
+            <h3>1. Aceptación de Términos</h3>
+            <p>Al acceder y utilizar TypeHub ("la Plataforma"), aceptas estar vinculado por estos Términos de Servicio. Si no aceptas todos los términos y condiciones, <strong>no estás autorizado para usar nuestros servicios</strong>.</p>
+
+            <h3>2. Descripción del Servicio</h3>
+            <p>TypeHub ofrece:</p>
+            <ul>
+              <li>Pruebas de tipografía en múltiples idiomas y dificultades</li>
+              <li>Seguimiento de estadísticas (velocidad WPM, precisión ACC)</li>
+              <li>Sistema de cuentas personalizadas</li>
+              <li>Gráficas de progreso en períodos de 7 días, 30 días, 12 meses y todo el tiempo</li>
+            </ul>
+
+            <h3>3. Cuentas de Usuario y Responsabilidad</h3>
+            <p><strong>Tu Responsabilidad:</strong></p>
+            <ul>
+              <li>Eres responsable de mantener la confidencialidad de tu contraseña</li>
+              <li>Debes ser honesto al proporcionar información de registro</li>
+              <li>No debes usar TypeHub para propósitos ilegales</li>
+            </ul>
+
+            <h3>4. Prohibiciones Explícitas</h3>
+            <p>Mientras usas TypeHub, NO debes:</p>
+            <ul>
+              <li>Intentar obtener acceso no autorizado a servidores</li>
+              <li>Usar bots, scripts o herramientas automatizadas para generar resultados fraudulentos</li>
+              <li>Compartir tu cuenta con otros usuarios</li>
+              <li>Crear múltiples cuentas para manipular estadísticas</li>
+              <li>Enviar contenido ilegal, ofensivo o discriminatorio</li>
+              <li>Acosar, amenazar o intimidar a otros usuarios</li>
+              <li>Violar cualquier ley aplicable</li>
+            </ul>
+
+            <h3>5. Almacenamiento de Datos y Privacidad</h3>
+            <p><strong>Datos Almacenados Actualmente:</strong></p>
+            <p>TypeHub almacena datos localmente en tu navegador (localStorage):</p>
+            <ul>
+              <li>Información de cuenta: Nombre de usuario, correo electrónico, contraseña</li>
+              <li>Historial de pruebas: WPM, ACC, caracteres tipados, tiempo, fecha, tipo de prueba</li>
+            </ul>
+            <p><em>Nota: Estos datos permanecen ÚNICAMENTE en tu dispositivo y no se sincronizan con servidores externos por defecto.</em></p>
+
+            <h3>6. Integración Futura con N8N y Hostinger</h3>
+            <p>En futuras versiones, TypeHub podría ofrecer sincronización de datos con servidores en Hostinger a través de procesos automatizados con N8N:</p>
+            <ul>
+              <li>Los datos serán transmitidos de forma segura (HTTPS)</li>
+              <li>Se aplicarán estándares de seguridad y encriptación</li>
+              <li>Antes de implementar esta sincronización, solicitaremos tu consentimiento explícito</li>
+            </ul>
+
+            <h3>7. Divulgación de Datos</h3>
+            <ul>
+              <li>Para mejorar tu experiencia en TypeHub</li>
+              <li>Para mostrar tus estadísticas personalizadas y gráficas de progreso</li>
+              <li>Nunca vendemos ni compartimos tus datos con terceros sin consentimiento</li>
+            </ul>
+
+            <h3>8. Derecho a Eliminar Datos</h3>
+            <p>Puedes eliminar tu cuenta y todos tus datos en cualquier momento desde la opción "Limpiar datos locales" en los ajustes de la plataforma.</p>
+
+            <h3>9. Atribución</h3>
+            <p>TypeHub está inspirado en <a href="https://monkeytype.com/" target="_blank">Monkeytype</a>, que es de código abierto bajo licencia AGPL-3.0. Los textos de prueba provienen de fuentes de dominio público.</p>
+
+            <h3>10. Limitación de Responsabilidad</h3>
+            <p>TypeHub se proporciona "TAL CUAL" sin garantías explícitas ni implícitas. No somos responsables por:</p>
+            <ul>
+              <li>Pérdida de datos por limpieza del navegador</li>
+              <li>Baja de la plataforma o mantenimiento</li>
+              <li>Errores en el cálculo de WPM o ACC</li>
+              <li>Daños indirectos causados por el uso de TypeHub</li>
+            </ul>
+
+            <h3>11. Cambios en los Términos</h3>
+            <p>TypeHub puede modificar estos términos en cualquier momento sin previo aviso. El uso continuado implica aceptación de los nuevos términos.</p>
+
+            <h3>12. Contacto</h3>
+            <p>Si tienes preguntas sobre estos Términos de Servicio, por favor contacta a través de nuestro formulario de contacto o envía un email a <strong>[Tu correo de contacto]</strong>.</p>
+
+            <p style="margin-top: 2rem; font-size: 0.9rem; color: var(--text-light); border-top: 1px solid var(--accent-secondary); padding-top: 1rem;">
+              Al usar TypeHub, aceptas completamente estos Términos de Servicio.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección: Leaderboard -->
+    <section id="leaderboard" class="section">
+      <div class="content-container">
+        <h2>🏆 Clasificación Global</h2>
+        <p>Los mejores velocistas de esta semana:</p>
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Usuario</th>
+              <th>WPM</th>
+              <th>Precisión</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>NinjuType</td>
+              <td>185</td>
+              <td>98.5%</td>
+              <td>Hace 2 horas</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>SpeedDemon</td>
+              <td>172</td>
+              <td>97.2%</td>
+              <td>Hace 5 horas</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>TypeMaster</td>
+              <td>165</td>
+              <td>99.1%</td>
+              <td>Hace 1 día</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>KeyBoard21</td>
+              <td>158</td>
+              <td>96.8%</td>
+              <td>Hace 3 días</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>FastFingers</td>
+              <td>152</td>
+              <td>98.3%</td>
+              <td>Hace 5 días</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Sección: About -->
+    <section id="about" class="section">
+      <div class="content-container">
+        <h2>ℹ️ Sobre TypeHub</h2>
+        <p>TypeHub es una plataforma minimalista para medir y mejorar tu velocidad de mecanografía. Realiza tests justos, compite con otros usuarios y mejora tus habilidades.</p>
+        
+        <h3>¿Cómo funciona?</h3>
+        <ul>
+          <li>🎯 Selecciona el modo (tiempo, palabras, citas, etc.)</li>
+          <li>⌨️ Escribe el texto que aparece en pantalla</li>
+          <li>📊 Recibe métricas precisas (WPM, precisión, errores)</li>
+          <li>🏆 Compite en la clasificación global</li>
+        </ul>
+
+        <h3>Características</h3>
+        <ul>
+          <li>Varios modos de test</li>
+          <li>Múltiples idiomas soportados</li>
+          <li>Temas personalizables</li>
+          <li>Estadísticas detalladas</li>
+          <li>Leaderboards globales</li>
+        </ul>
+
+        <p style="margin-top: 2rem; color: var(--text-light);">
+          Versión 1.0.0 — Made with ❤️ para mecanógrafos como tú.
+        </p>
+      </div>
+    </section>
+
+    <!-- Sección: Settings -->
+    <section id="settings" class="section">
+      <div class="content-container">
+        <h2>⚙️ Ajustes</h2>
+        
+        <div class="settings-group">
+          <h3>Tema</h3>
+          <div class="theme-selector">
+            <button class="theme-btn active" data-theme="serika">Serika Dark</button>
+            <button class="theme-btn" data-theme="nord">Nord</button>
+            <button class="theme-btn" data-theme="dracula">Dracula</button>
+            <button class="theme-btn" data-theme="monokai">Monokai</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>Sonidos</h3>
+          <label class="checkbox">
+            <input type="checkbox" id="soundToggle" checked />
+            Habilitar sonidos
+          </label>
+        </div>
+
+        <div class="settings-group">
+          <h3>Privacidad</h3>
+          <label class="checkbox">
+            <input type="checkbox" id="privateToggle" />
+            Perfil privado
+          </label>
+        </div>
+
+        <div class="settings-group">
+          <h3>Datos</h3>
+          <button class="btn btn-secondary" id="clearDataBtn">Limpiar datos locales</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección: Login / Perfil -->
+    <section id="login" class="section">
+      <!-- Panel de Registro -->
+      <div class="auth-container" id="registerPanel">
+        <h2>Crear Cuenta</h2>
+        <form class="auth-form" id="registerForm">
+          <input type="text" id="regUsername" placeholder="Nombre de usuario" required />
+          <input type="email" id="regEmail" placeholder="Email" required />
+          <input type="password" id="regPassword" placeholder="Contraseña" required />
+          <input type="password" id="regPasswordConfirm" placeholder="Confirmar contraseña" required />
+          <button type="submit" class="btn btn-primary">Registrarse</button>
+        </form>
+        <p style="text-align: center; color: var(--text-light); margin-top: 1rem;">
+          ¿Ya tienes cuenta? <a href="#" id="toLoginLink">Inicia sesión aquí</a>
+        </p>
+      </div>
+
+      <!-- Panel de Login -->
+      <div class="auth-container" id="loginPanel" style="display: none;">
+        <h2>Iniciar Sesión</h2>
+        <form class="auth-form" id="loginForm">
+          <input type="email" id="loginEmail" placeholder="Email" required />
+          <input type="password" id="loginPassword" placeholder="Contraseña" required />
+          <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+        </form>
+        <p style="text-align: center; color: var(--text-light); margin-top: 1rem;">
+          ¿No tienes cuenta? <a href="#" id="toRegisterLink">Regístrate aquí</a>
+        </p>
+      </div>
+
+      <!-- Panel de Perfil (cuando está logueado) -->
+      <div class="profile-container" id="profilePanel" style="display: none;">
+        <button class="btn btn-secondary" id="logoutBtn">Cerrar Sesión</button>
+
+        <div class="profile-header-card">
+          <div>
+            <h2 class="profile-username" id="profileUsername">-</h2>
+            <div class="profile-meta-row">
+              <span id="profileDate">Joined -</span>
+              <span id="profileDaysAgo">0 days ago</span>
+            </div>
+            <div class="profile-email" id="profileEmail">-</div>
+          </div>
+          <div class="xp-panel">
+            <div class="xp-level" id="profileLevel">1</div>
+            <div class="xp-total" id="profileTotalXp">0 total xp</div>
+            <div class="xp-progress" id="profileNextPct">0.00%</div>
+            <div class="xp-until" id="profileXpUntil">1 / 1000 xp until next level</div>
+          </div>
+        </div>
+
+        <div class="profile-block">
+          <h3>Resumen global de uso</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span>tests started</span>
+              <strong id="statTestsStarted">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>tests completed</span>
+              <strong id="statTestsCompleted">0 (0%)</strong>
+              <small id="statRestarts">0 restarts per completed test</small>
+            </div>
+            <div class="summary-item">
+              <span>time typing</span>
+              <strong id="statTotalTime">00:00:00</strong>
+            </div>
+          </div>
+          <div class="profile-actions">
+            <button class="btn btn-secondary" id="editProfileBtn">Edit profile</button>
+            <button class="btn btn-primary" id="copyPublicLinkBtn">Copy public link</button>
+          </div>
+        </div>
+
+        <div class="profile-block">
+          <h3>All-Time English Leaderboards</h3>
+          <div class="pb-grid" id="personalBestsGrid">
+            <div class="pb-card"><div>15 seconds</div><strong id="pb15">- -</strong><small id="pb15Date">-</small></div>
+            <div class="pb-card"><div>30 seconds</div><strong id="pb30">- -</strong><small id="pb30Date">-</small></div>
+            <div class="pb-card"><div>50 words</div><strong id="pb50w">- -</strong><small id="pb50wDate">-</small></div>
+            <div class="pb-card"><div>100 words</div><strong id="pb100w">- -</strong><small id="pb100wDate">-</small></div>
+          </div>
+          <button class="btn btn-secondary" id="showAllPbsBtn">Show all personal bests</button>
+        </div>
+
+        <div class="profile-block">
+          <div class="activity-header">
+            <h3>Actividad</h3>
+            <select id="activityRangeSelect">
+              <option value="day">last day</option>
+              <option value="week">last week</option>
+              <option value="month">last month</option>
+              <option value="3months">last 3 months</option>
+              <option value="12months" selected>last 12 months</option>
+              <option value="all">all time</option>
+            </select>
+          </div>
+          <p id="activityCountInfo"><span id="activityCountValue">0</span> tests <a href="#" id="activityLessLink">less</a> <a href="#" id="activityMoreLink">more</a></p>
+          <div class="activity-list" id="activityList"></div>
+          <p class="utc-note">Note: All activity data is using UTC time.</p>
+        </div>
+
+        <div class="profile-block">
+          <h3>filters</h3>
+          <div class="filter-presets">
+            <button class="filter-chip active">all</button>
+            <button class="filter-chip">current settings</button>
+            <button class="filter-chip">advanced</button>
+            <button class="filter-chip">save as preset</button>
+            <button class="filter-chip">last day</button>
+            <button class="filter-chip">last week</button>
+            <button class="filter-chip">last month</button>
+            <button class="filter-chip">last 3 months</button>
+            <button class="filter-chip">all time</button>
+          </div>
+          <div class="filters-grid">
+            <div class="filter-box" data-filter="date">
+              <span class="filter-box-title">Date</span>
+              <select id="filterDate"><option value="all">all</option></select>
+            </div>
+            <div class="filter-box" data-filter="mode">
+              <span class="filter-box-title">Mode</span>
+              <select id="filterMode"><option value="all">all</option><option value="time">time</option><option value="words">words</option><option value="texts">texts</option></select>
+            </div>
+            <div class="filter-box" data-filter="time">
+              <span class="filter-box-title">Time</span>
+              <select id="filterTime"><option value="all">all</option><option value="15">15s</option><option value="30">30s</option><option value="60">60s</option><option value="120">120s</option></select>
+            </div>
+            <div class="filter-box" data-filter="words">
+              <span class="filter-box-title">Words</span>
+              <select id="filterWords"><option value="all">all</option><option value="50">50</option><option value="100">100</option></select>
+            </div>
+            <div class="filter-box" data-filter="difficulty">
+              <span class="filter-box-title">Difficulty</span>
+              <select id="filterDifficulty"><option value="all">all</option><option value="1k">1k</option><option value="5k">5k</option><option value="20k">20k</option></select>
+            </div>
+            <div class="filter-box" data-filter="punctuation">
+              <span class="filter-box-title">Punctuation</span>
+              <select id="filterPunctuation"><option value="all">all</option><option value="on">on</option><option value="off">off</option></select>
+            </div>
+            <div class="filter-box" data-filter="numbers">
+              <span class="filter-box-title">Numbers</span>
+              <select id="filterNumbers"><option value="all">all</option><option value="on">on</option><option value="off">off</option></select>
+            </div>
+            <div class="filter-box" data-filter="language">
+              <span class="filter-box-title">Language</span>
+              <select id="filterLanguage"><option value="all">all</option><option value="es">spanish</option><option value="en">english</option><option value="fr">french</option><option value="de">german</option><option value="pt">portuguese</option></select>
+            </div>
+            <div class="filter-box" data-filter="funbox">
+              <span class="filter-box-title">Funbox</span>
+              <select id="filterFunbox"><option value="all">all</option></select>
+            </div>
+            <div class="filter-box" data-filter="tags">
+              <span class="filter-box-title">Tags</span>
+              <select id="filterTags"><option value="all">all</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-block">
+          <p class="speed-trend" id="speedTrend">Speed change per hour spent typing: 0.00 wpm</p>
+          <div class="metric-tabs">
+            <button class="metric-tab active" data-metric="speed">Speed</button>
+            <button class="metric-tab" data-metric="accuracy">Accuracy</button>
+            <button class="metric-tab" data-metric="avg10">Avg of 10</button>
+            <button class="metric-tab" data-metric="avg100">Avg of 100</button>
+          </div>
+          <canvas id="profileTrendChart" width="900" height="220"></canvas>
+          <div class="range-summary-grid">
+            <div><span>estimated words typed</span><strong id="rangeWords">0</strong></div>
+            <div><span>tests started</span><strong id="rangeStarted">0</strong></div>
+            <div><span>tests completed</span><strong id="rangeCompleted">0 (0%)</strong><small id="rangeRestarts">0 restarts per completed test</small></div>
+            <div><span>time typing</span><strong id="rangeTime">00:00:00</strong></div>
+            <div><span>highest wpm</span><strong id="rangeBestWpm">0 time -</strong></div>
+            <div><span>average wpm</span><strong id="rangeAvgWpm">0</strong><small id="rangeAvgWpm10">last 10: 0</small></div>
+            <div><span>highest raw wpm</span><strong id="rangeBestRaw">0</strong></div>
+            <div><span>average raw wpm</span><strong id="rangeAvgRaw">0</strong><small id="rangeAvgRaw10">last 10: 0</small></div>
+            <div><span>highest accuracy</span><strong id="rangeBestAcc">0%</strong></div>
+            <div><span>avg accuracy</span><strong id="rangeAvgAcc">0%</strong><small id="rangeAvgAcc10">last 10: 0%</small></div>
+            <div><span>highest consistency</span><strong id="rangeBestCon">0%</strong></div>
+            <div><span>avg consistency</span><strong id="rangeAvgCon">0%</strong><small id="rangeAvgCon10">last 10: 0%</small></div>
+          </div>
+          <button class="btn btn-secondary" id="exportCsvBtn">Export CSV</button>
+        </div>
+
+        <div class="profile-block">
+          <h3>Resultados individuales</h3>
+          <div class="tests-history" id="testsHistory">
+            <p style="color: var(--text-light); text-align: center;">Sin tests registrados aún.</p>
+          </div>
+          <button class="btn btn-secondary" id="loadMoreTestsBtn">load more</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-group">
+        <h4>Comunidad</h4>
+        <a href="#" target="_blank">🐙 GitHub</a>
+        <a href="#" target="_blank">💬 Discord</a>
+        <a href="#" target="_blank">𝕏 Twitter</a>
+      </div>
+      <div class="footer-group">
+        <h4>Legal</h4>
+        <a href="#" id="termsLink">Términos de Servicio</a>
+        <a href="#">Privacidad</a>
+        <a href="#">Seguridad</a>
+      </div>
+      <div class="footer-group">
+        <h4>Soporte</h4>
+        <a href="#">Centro de Ayuda</a>
+        <a href="#">Reportar Bug</a>
+        <a href="#">Contacto</a>
+      </div>
+      <div class="footer-group">
+        <p style="font-size: 0.85rem; color: var(--text-light);">TypeHub v1.0.0</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
