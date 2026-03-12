@@ -659,7 +659,7 @@
     }
   }
 
-  function registerUser(username, email, password) {
+  async function registerUser(username, email, password) {
     if (!username || !email || !password) {
       alert('Todos los campos son requeridos');
       return false;
@@ -668,22 +668,108 @@
       alert('La contraseña debe tener al menos 6 caracteres');
       return false;
     }
+
     const users = JSON.parse(localStorage.getItem('users') || '{}');
     if (users[email]) {
       alert('Este email ya está registrado');
       return false;
     }
+
+    const createdAtIso = new Date().toISOString();
+    const profileSeed = {
+      created_at: createdAtIso,
+      tests_started: 0,
+      restarts: 0,
+      total_xp: 0,
+      arena_trophies: 0,
+      arena_name: 'Bronce',
+      league_points: 0,
+      league_label: 'Bronce I',
+      avg_wpm: 0,
+      best_wpm: 0,
+      total_tests: 0,
+      app_version: '1.0'
+    };
+
+    // Webhook de TEST para registro en n8n.
+    // Para producción, cambia SOLO esta URL por:
+    // https://n8n.srv1369665.hstgr.cloud/webhook/api/register
+    const registerWebhookUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register';
+
+    let payload;
+    try {
+      const response = await fetch(registerWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username,
+          email: email,
+          password: password,
+          created_at: profileSeed.created_at,
+          tests_started: profileSeed.tests_started,
+          restarts: profileSeed.restarts,
+          total_xp: profileSeed.total_xp,
+          arena_trophies: profileSeed.arena_trophies,
+          arena_name: profileSeed.arena_name,
+          league_points: profileSeed.league_points,
+          league_label: profileSeed.league_label,
+          avg_wpm: profileSeed.avg_wpm,
+          best_wpm: profileSeed.best_wpm,
+          total_tests: profileSeed.total_tests,
+          app_version: profileSeed.app_version
+        })
+      });
+
+      if (!response.ok) {
+        alert('Error al registrar usuario');
+        return false;
+      }
+
+      payload = await response.json();
+    } catch (_) {
+      alert('Error de conexión al registrar usuario');
+      return false;
+    }
+
+    if (!payload || payload.success !== true) {
+      alert('Error al registrar usuario');
+      return false;
+    }
+
+    const createdAt = payload.createdAt || payload.created_at || profileSeed.created_at;
     const newUser = {
       username,
       email,
       password,
-      createdAt: new Date().toISOString(),
-      testsStarted: 0,
-      restarts: 0,
+      createdAt: createdAt,
+      n8nUserId: payload.userId || payload.id || null,
+      testsStarted: profileSeed.tests_started,
+      restarts: profileSeed.restarts,
+      totalXp: profileSeed.total_xp,
+      arenaTrophies: profileSeed.arena_trophies,
+      arenaName: profileSeed.arena_name,
+      leaguePoints: profileSeed.league_points,
+      leagueLabel: profileSeed.league_label,
+      avgWpm: profileSeed.avg_wpm,
+      bestWpm: profileSeed.best_wpm,
+      totalTests: profileSeed.total_tests,
+      appVersion: profileSeed.app_version,
       tests: []
     };
+
     users[email] = newUser;
     localStorage.setItem('users', JSON.stringify(users));
+
+    STATE.currentUser = {
+      email: newUser.email,
+      username: newUser.username,
+      createdAt: newUser.createdAt,
+      n8nUserId: newUser.n8nUserId
+    };
+    localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
+    updateAuthUI();
+
+    // Se mantiene para compatibilidad con el flujo actual de login local.
     loginUserByEmail(email, password);
     return true;
   }
@@ -1334,7 +1420,7 @@
     ELEMENTS.closeResultsBtn.addEventListener('click', closeResults);
     ELEMENTS.modalOverlay.addEventListener('click', closeResults);
 
-    ELEMENTS.registerForm.addEventListener('submit', e => {
+    ELEMENTS.registerForm.addEventListener('submit', async e => {
       e.preventDefault();
       const username = $('regUsername').value.trim();
       const email = $('regEmail').value.trim();
@@ -1346,7 +1432,7 @@
         return;
       }
       
-      if (registerUser(username, email, password)) {
+      if (await registerUser(username, email, password)) {
         $('regUsername').value = '';
         $('regEmail').value = '';
         $('regPassword').value = '';
