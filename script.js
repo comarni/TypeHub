@@ -326,6 +326,27 @@
       date: 'all', mode: 'all', time: 'all', words: 'all', difficulty: 'all',
       punctuation: 'all', numbers: 'all', language: 'all', funbox: 'all', tags: 'all'
     },
+    languages: {
+      base: 'es',
+      target: 'en',
+      profile: {
+        xpByTarget: { es: 0, en: 0, fr: 0 },
+        gems: 0,
+        completedLessons: {},
+        categoryRewards: {},
+        preferences: { base: 'es', target: 'en' }
+      },
+      activeLesson: null,
+      session: {
+        hearts: 3,
+        maxHearts: 3,
+        phraseIndex: 0,
+        phraseStats: [],
+        phraseStartAt: 0,
+        totalErrors: 0,
+        finished: false
+      }
+    },
     versus: {
       isActive: false,
       inCountdown: false,
@@ -391,6 +412,11 @@
 
   const BOT_MOODS = ['calentando', 'concentrado', 'en racha', 'tilt'];
 
+  const TEST_WEBHOOK_URLS = [
+    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/tests',
+    'https://n8n.srv1369665.hstgr.cloud/webhook/api/tests'
+  ];
+
   const ARENAS = [
     { name: 'Bronce', min: 0, max: 500, benefits: ['Sin ventajas'] },
     { name: 'Plata', min: 501, max: 1500, benefits: ['+5% multiplicador XP diario'] },
@@ -408,6 +434,62 @@
     { min: 8, max: 14, label: 'Doble XP + skin temporal', visual: 'Corona semanal' },
     { min: 15, max: Infinity, label: 'Triple XP + entrada torneo', visual: 'Leyenda Activa' }
   ];
+
+  // Datos de lecciones demo (beta) para el modo Aprender Idiomas.
+  const LANGUAGE_LABELS = { es: 'Español', en: 'Inglés', fr: 'Francés' };
+  const CATEGORY_META = {
+    grammar: { icon: '📘', label: 'Gramática' },
+    vocabulary: { icon: '📚', label: 'Vocabulario' },
+    useful: { icon: '💬', label: 'Frases útiles' },
+    spelling: { icon: '✍️', label: 'Ortografía' }
+  };
+
+  const LANGUAGE_LESSON_SETS = {
+    'es-en': [
+      { id: 'grammar-1', category: 'grammar', title: 'Gramática 1: Presente simple', explanation: 'Practica estructuras básicas en presente.', phrases: [{ base: 'Yo trabajo hoy.', target: 'I work today.' }, { base: 'Ella vive aquí.', target: 'She lives here.' }, { base: 'Nosotros estudiamos inglés.', target: 'We study English.' }, { base: 'Ellos comen temprano.', target: 'They eat early.' }, { base: 'Tú hablas rápido.', target: 'You speak fast.' }] },
+      { id: 'grammar-2', category: 'grammar', title: 'Gramática 2: Verbo to be', explanation: 'Afirma ideas simples con am/is/are.', phrases: [{ base: 'Yo estoy listo.', target: 'I am ready.' }, { base: 'Ella es mi amiga.', target: 'She is my friend.' }, { base: 'Nosotros estamos en casa.', target: 'We are at home.' }, { base: 'Ellos son estudiantes.', target: 'They are students.' }, { base: 'Tú estás bien.', target: 'You are fine.' }] },
+      { id: 'grammar-3', category: 'grammar', title: 'Gramática 3: Artículos', explanation: 'Combina sustantivos con a/the.', phrases: [{ base: 'Tengo un libro.', target: 'I have a book.' }, { base: 'La casa es grande.', target: 'The house is big.' }, { base: 'Es una buena idea.', target: 'It is a good idea.' }, { base: 'El coche es rojo.', target: 'The car is red.' }, { base: 'Necesito una mesa.', target: 'I need a table.' }] },
+      { id: 'grammar-4', category: 'grammar', title: 'Gramática 4: Negaciones', explanation: 'Usa do not y does not en frases cortas.', phrases: [{ base: 'Yo no entiendo.', target: 'I do not understand.' }, { base: 'Ella no corre.', target: 'She does not run.' }, { base: 'No tenemos tiempo.', target: 'We do not have time.' }, { base: 'Ellos no vienen hoy.', target: 'They do not come today.' }, { base: 'Tú no trabajas aquí.', target: 'You do not work here.' }] },
+      { id: 'grammar-5', category: 'grammar', title: 'Gramática 5: Preguntas', explanation: 'Forma preguntas sencillas en presente.', phrases: [{ base: '¿Trabajas mañana?', target: 'Do you work tomorrow?' }, { base: '¿Ella vive aquí?', target: 'Does she live here?' }, { base: '¿Tienen agua?', target: 'Do they have water?' }, { base: '¿Estamos listos?', target: 'Are we ready?' }, { base: '¿Es tu hermano?', target: 'Is he your brother?' }] },
+      { id: 'vocabulary-1', category: 'vocabulary', title: 'Vocabulario 1: Presentarse', explanation: 'Frases básicas para presentarte.', phrases: [{ base: 'Me llamo Ana.', target: 'My name is Ana.' }, { base: 'Soy de España.', target: 'I am from Spain.' }, { base: 'Tengo veinte años.', target: 'I am twenty years old.' }, { base: 'Trabajo en una oficina.', target: 'I work in an office.' }, { base: 'Vivo en Madrid.', target: 'I live in Madrid.' }] },
+      { id: 'vocabulary-2', category: 'vocabulary', title: 'Vocabulario 2: Familia', explanation: 'Palabras frecuentes sobre familia.', phrases: [{ base: 'Mi madre está aquí.', target: 'My mother is here.' }, { base: 'Mi padre cocina bien.', target: 'My father cooks well.' }, { base: 'Tengo dos hermanos.', target: 'I have two brothers.' }, { base: 'Ella es mi hermana.', target: 'She is my sister.' }, { base: 'Mi familia es grande.', target: 'My family is big.' }] },
+      { id: 'vocabulary-3', category: 'vocabulary', title: 'Vocabulario 3: Casa', explanation: 'Objetos y zonas de la casa.', phrases: [{ base: 'La cocina está limpia.', target: 'The kitchen is clean.' }, { base: 'La puerta está abierta.', target: 'The door is open.' }, { base: 'La ventana es pequeña.', target: 'The window is small.' }, { base: 'Tengo una silla nueva.', target: 'I have a new chair.' }, { base: 'El baño está arriba.', target: 'The bathroom is upstairs.' }] },
+      { id: 'vocabulary-4', category: 'vocabulary', title: 'Vocabulario 4: Ciudad', explanation: 'Ubicaciones comunes en la ciudad.', phrases: [{ base: 'El banco está cerca.', target: 'The bank is near.' }, { base: 'Voy a la estación.', target: 'I go to the station.' }, { base: 'El parque es bonito.', target: 'The park is beautiful.' }, { base: 'La tienda abre temprano.', target: 'The store opens early.' }, { base: 'Necesito un mapa.', target: 'I need a map.' }] },
+      { id: 'vocabulary-5', category: 'vocabulary', title: 'Vocabulario 5: Comida', explanation: 'Frases de comida cotidiana.', phrases: [{ base: 'Quiero una manzana.', target: 'I want an apple.' }, { base: 'Ella bebe agua.', target: 'She drinks water.' }, { base: 'Comemos arroz hoy.', target: 'We eat rice today.' }, { base: 'El pan está fresco.', target: 'The bread is fresh.' }, { base: 'Necesito leche.', target: 'I need milk.' }] },
+      { id: 'useful-1', category: 'useful', title: 'Frases útiles 1: Saludos', explanation: 'Saludos para empezar una conversación.', phrases: [{ base: 'Hola, ¿cómo estás?', target: 'Hello, how are you?' }, { base: 'Buenos días.', target: 'Good morning.' }, { base: 'Buenas tardes.', target: 'Good afternoon.' }, { base: 'Buenas noches.', target: 'Good evening.' }, { base: 'Mucho gusto.', target: 'Nice to meet you.' }] },
+      { id: 'useful-2', category: 'useful', title: 'Frases útiles 2: Preguntar', explanation: 'Preguntas prácticas del día a día.', phrases: [{ base: '¿Dónde está el baño?', target: 'Where is the bathroom?' }, { base: '¿Cuánto cuesta esto?', target: 'How much is this?' }, { base: '¿Puedes ayudarme?', target: 'Can you help me?' }, { base: '¿Qué hora es?', target: 'What time is it?' }, { base: '¿Hablas español?', target: 'Do you speak Spanish?' }] },
+      { id: 'useful-3', category: 'useful', title: 'Frases útiles 3: Cortesía', explanation: 'Expresiones de cortesía básicas.', phrases: [{ base: 'Por favor, siéntate.', target: 'Please, sit down.' }, { base: 'Muchas gracias.', target: 'Thank you very much.' }, { base: 'De nada.', target: 'You are welcome.' }, { base: 'Lo siento mucho.', target: 'I am very sorry.' }, { base: 'Con permiso.', target: 'Excuse me.' }] },
+      { id: 'useful-4', category: 'useful', title: 'Frases útiles 4: Viaje', explanation: 'Frases breves para moverte en viaje.', phrases: [{ base: 'Necesito un taxi.', target: 'I need a taxi.' }, { base: 'Tengo una reserva.', target: 'I have a reservation.' }, { base: 'Quiero ir al hotel.', target: 'I want to go to the hotel.' }, { base: 'El vuelo sale tarde.', target: 'The flight leaves late.' }, { base: 'Busco esta dirección.', target: 'I am looking for this address.' }] },
+      { id: 'useful-5', category: 'useful', title: 'Frases útiles 5: Conversación', explanation: 'Frases para mantener la conversación.', phrases: [{ base: 'Estoy aprendiendo inglés.', target: 'I am learning English.' }, { base: 'Hablas muy rápido.', target: 'You speak very fast.' }, { base: '¿Puedes repetir eso?', target: 'Can you repeat that?' }, { base: 'No entiendo esta palabra.', target: 'I do not understand this word.' }, { base: 'Eso suena bien.', target: 'That sounds good.' }] },
+      { id: 'spelling-1', category: 'spelling', title: 'Ortografía 1: Palabras comunes', explanation: 'Escribe con precisión palabras frecuentes.', phrases: [{ base: 'Escribe: información.', target: 'information' }, { base: 'Escribe: importante.', target: 'important' }, { base: 'Escribe: diferente.', target: 'different' }, { base: 'Escribe: pregunta.', target: 'question' }, { base: 'Escribe: respuesta.', target: 'answer' }] },
+      { id: 'spelling-2', category: 'spelling', title: 'Ortografía 2: Doble consonante', explanation: 'Practica palabras con doble consonante.', phrases: [{ base: 'Escribe: pequeño.', target: 'little' }, { base: 'Escribe: dirección.', target: 'address' }, { base: 'Escribe: ocurrir.', target: 'occur' }, { base: 'Escribe: diferente.', target: 'different' }, { base: 'Escribe: conectar.', target: 'connect' }] },
+      { id: 'spelling-3', category: 'spelling', title: 'Ortografía 3: Terminaciones', explanation: 'Cuida las terminaciones frecuentes.', phrases: [{ base: 'Escribe: rápidamente.', target: 'quickly' }, { base: 'Escribe: lentamente.', target: 'slowly' }, { base: 'Escribe: amable.', target: 'friendly' }, { base: 'Escribe: útil.', target: 'useful' }, { base: 'Escribe: correcto.', target: 'correct' }] },
+      { id: 'spelling-4', category: 'spelling', title: 'Ortografía 4: Frases cortas', explanation: 'Combina ortografía en frases simples.', phrases: [{ base: 'Escribe: mi nombre es luca.', target: 'my name is luca.' }, { base: 'Escribe: ella vive en paris.', target: 'she lives in paris.' }, { base: 'Escribe: nosotros comemos arroz.', target: 'we eat rice.' }, { base: 'Escribe: ellos trabajan hoy.', target: 'they work today.' }, { base: 'Escribe: yo estudio frances.', target: 'i study french.' }] },
+      { id: 'spelling-5', category: 'spelling', title: 'Ortografía 5: Precisión final', explanation: 'Última práctica de precisión.', phrases: [{ base: 'Escribe: where is the station?', target: 'where is the station?' }, { base: 'Escribe: good morning everyone.', target: 'good morning everyone.' }, { base: 'Escribe: i am ready to learn.', target: 'i am ready to learn.' }, { base: 'Escribe: this lesson is complete.', target: 'this lesson is complete.' }, { base: 'Escribe: keep typing every day.', target: 'keep typing every day.' }] }
+    ],
+    'es-fr': [
+      { id: 'grammar-1', category: 'grammar', title: 'Gramática 1: Presente simple', explanation: 'Empieza con estructuras simples del presente.', phrases: [{ base: 'Yo trabajo hoy.', target: 'Je travaille aujourd\'hui.' }, { base: 'Ella vive aquí.', target: 'Elle habite ici.' }, { base: 'Nosotros estudiamos francés.', target: 'Nous etudions le francais.' }, { base: 'Ellos comen temprano.', target: 'Ils mangent tot.' }, { base: 'Tú hablas rápido.', target: 'Tu parles vite.' }] },
+      { id: 'grammar-2', category: 'grammar', title: 'Gramática 2: Être', explanation: 'Usa etre para describir estado e identidad.', phrases: [{ base: 'Yo estoy listo.', target: 'Je suis pret.' }, { base: 'Ella es mi amiga.', target: 'Elle est mon amie.' }, { base: 'Nosotros estamos en casa.', target: 'Nous sommes a la maison.' }, { base: 'Ellos son estudiantes.', target: 'Ils sont etudiants.' }, { base: 'Tú estás bien.', target: 'Tu es bien.' }] },
+      { id: 'grammar-3', category: 'grammar', title: 'Gramática 3: Artículos', explanation: 'Practica un, une y le/la.', phrases: [{ base: 'Tengo un libro.', target: 'J\'ai un livre.' }, { base: 'La casa es grande.', target: 'La maison est grande.' }, { base: 'Es una buena idea.', target: 'C\'est une bonne idee.' }, { base: 'El coche es rojo.', target: 'La voiture est rouge.' }, { base: 'Necesito una mesa.', target: 'J\'ai besoin d\'une table.' }] },
+      { id: 'grammar-4', category: 'grammar', title: 'Gramática 4: Negaciones', explanation: 'Niega frases con ne...pas.', phrases: [{ base: 'Yo no entiendo.', target: 'Je ne comprends pas.' }, { base: 'Ella no corre.', target: 'Elle ne court pas.' }, { base: 'No tenemos tiempo.', target: 'Nous n\'avons pas de temps.' }, { base: 'Ellos no vienen hoy.', target: 'Ils ne viennent pas aujourd\'hui.' }, { base: 'Tú no trabajas aquí.', target: 'Tu ne travailles pas ici.' }] },
+      { id: 'grammar-5', category: 'grammar', title: 'Gramática 5: Preguntas', explanation: 'Forma preguntas directas de uso diario.', phrases: [{ base: '¿Trabajas mañana?', target: 'Tu travailles demain ?' }, { base: '¿Ella vive aquí?', target: 'Elle habite ici ?' }, { base: '¿Tienen agua?', target: 'Ils ont de l\'eau ?' }, { base: '¿Estamos listos?', target: 'Nous sommes prets ?' }, { base: '¿Es tu hermano?', target: 'C\'est ton frere ?' }] },
+      { id: 'vocabulary-1', category: 'vocabulary', title: 'Vocabulario 1: Presentarse', explanation: 'Frases para hablar de ti.', phrases: [{ base: 'Me llamo Ana.', target: 'Je m\'appelle Ana.' }, { base: 'Soy de España.', target: 'Je viens d\'Espagne.' }, { base: 'Tengo veinte años.', target: 'J\'ai vingt ans.' }, { base: 'Trabajo en una oficina.', target: 'Je travaille dans un bureau.' }, { base: 'Vivo en Madrid.', target: 'J\'habite a Madrid.' }] },
+      { id: 'vocabulary-2', category: 'vocabulary', title: 'Vocabulario 2: Familia', explanation: 'Habla de miembros de tu familia.', phrases: [{ base: 'Mi madre está aquí.', target: 'Ma mere est ici.' }, { base: 'Mi padre cocina bien.', target: 'Mon pere cuisine bien.' }, { base: 'Tengo dos hermanos.', target: 'J\'ai deux freres.' }, { base: 'Ella es mi hermana.', target: 'Elle est ma soeur.' }, { base: 'Mi familia es grande.', target: 'Ma famille est grande.' }] },
+      { id: 'vocabulary-3', category: 'vocabulary', title: 'Vocabulario 3: Casa', explanation: 'Palabras comunes de casa.', phrases: [{ base: 'La cocina está limpia.', target: 'La cuisine est propre.' }, { base: 'La puerta está abierta.', target: 'La porte est ouverte.' }, { base: 'La ventana es pequeña.', target: 'La fenetre est petite.' }, { base: 'Tengo una silla nueva.', target: 'J\'ai une nouvelle chaise.' }, { base: 'El baño está arriba.', target: 'La salle de bain est en haut.' }] },
+      { id: 'vocabulary-4', category: 'vocabulary', title: 'Vocabulario 4: Ciudad', explanation: 'Términos simples para moverte.', phrases: [{ base: 'El banco está cerca.', target: 'La banque est proche.' }, { base: 'Voy a la estación.', target: 'Je vais a la gare.' }, { base: 'El parque es bonito.', target: 'Le parc est joli.' }, { base: 'La tienda abre temprano.', target: 'Le magasin ouvre tot.' }, { base: 'Necesito un mapa.', target: 'J\'ai besoin d\'une carte.' }] },
+      { id: 'vocabulary-5', category: 'vocabulary', title: 'Vocabulario 5: Comida', explanation: 'Frases de comida diaria.', phrases: [{ base: 'Quiero una manzana.', target: 'Je veux une pomme.' }, { base: 'Ella bebe agua.', target: 'Elle boit de l\'eau.' }, { base: 'Comemos arroz hoy.', target: 'Nous mangeons du riz aujourd\'hui.' }, { base: 'El pan está fresco.', target: 'Le pain est frais.' }, { base: 'Necesito leche.', target: 'J\'ai besoin de lait.' }] },
+      { id: 'useful-1', category: 'useful', title: 'Frases útiles 1: Saludos', explanation: 'Saludos para iniciar conversación.', phrases: [{ base: 'Hola, ¿cómo estás?', target: 'Salut, comment ca va ?' }, { base: 'Buenos días.', target: 'Bonjour.' }, { base: 'Buenas tardes.', target: 'Bon apres-midi.' }, { base: 'Buenas noches.', target: 'Bonsoir.' }, { base: 'Mucho gusto.', target: 'Ravi de te rencontrer.' }] },
+      { id: 'useful-2', category: 'useful', title: 'Frases útiles 2: Preguntar', explanation: 'Preguntas útiles en contexto real.', phrases: [{ base: '¿Dónde está el baño?', target: 'Ou sont les toilettes ?' }, { base: '¿Cuánto cuesta esto?', target: 'Combien ca coute ?' }, { base: '¿Puedes ayudarme?', target: 'Peux-tu m\'aider ?' }, { base: '¿Qué hora es?', target: 'Quelle heure est-il ?' }, { base: '¿Hablas español?', target: 'Tu parles espagnol ?' }] },
+      { id: 'useful-3', category: 'useful', title: 'Frases útiles 3: Cortesía', explanation: 'Expresiones de cortesía frecuentes.', phrases: [{ base: 'Por favor, siéntate.', target: 'S\'il te plait, assieds-toi.' }, { base: 'Muchas gracias.', target: 'Merci beaucoup.' }, { base: 'De nada.', target: 'De rien.' }, { base: 'Lo siento mucho.', target: 'Je suis desole.' }, { base: 'Con permiso.', target: 'Excuse-moi.' }] },
+      { id: 'useful-4', category: 'useful', title: 'Frases útiles 4: Viaje', explanation: 'Frases rápidas para viajes.', phrases: [{ base: 'Necesito un taxi.', target: 'J\'ai besoin d\'un taxi.' }, { base: 'Tengo una reserva.', target: 'J\'ai une reservation.' }, { base: 'Quiero ir al hotel.', target: 'Je veux aller a l\'hotel.' }, { base: 'El vuelo sale tarde.', target: 'Le vol part tard.' }, { base: 'Busco esta dirección.', target: 'Je cherche cette adresse.' }] },
+      { id: 'useful-5', category: 'useful', title: 'Frases útiles 5: Conversación', explanation: 'Mantén una conversación básica.', phrases: [{ base: 'Estoy aprendiendo francés.', target: 'J\'apprends le francais.' }, { base: 'Hablas muy rápido.', target: 'Tu parles trop vite.' }, { base: '¿Puedes repetir eso?', target: 'Peux-tu repeter ca ?' }, { base: 'No entiendo esta palabra.', target: 'Je ne comprends pas ce mot.' }, { base: 'Eso suena bien.', target: 'Ca sonne bien.' }] },
+      { id: 'spelling-1', category: 'spelling', title: 'Ortografía 1: Palabras comunes', explanation: 'Escribe con precisión palabras básicas.', phrases: [{ base: 'Escribe: información.', target: 'information' }, { base: 'Escribe: importante.', target: 'important' }, { base: 'Escribe: diferente.', target: 'different' }, { base: 'Escribe: pregunta.', target: 'question' }, { base: 'Escribe: respuesta.', target: 'reponse' }] },
+      { id: 'spelling-2', category: 'spelling', title: 'Ortografía 2: Acentos', explanation: 'Practica escritura sin perder claridad.', phrases: [{ base: 'Escribe: presentación.', target: 'presentation' }, { base: 'Escribe: conversación.', target: 'conversation' }, { base: 'Escribe: estación.', target: 'station' }, { base: 'Escribe: habitación.', target: 'chambre' }, { base: 'Escribe: dirección.', target: 'adresse' }] },
+      { id: 'spelling-3', category: 'spelling', title: 'Ortografía 3: Frases cortas', explanation: 'Integra precisión en frases simples.', phrases: [{ base: 'Escribe: je m appelle luca.', target: 'je m appelle luca.' }, { base: 'Escribe: nous sommes prets.', target: 'nous sommes prets.' }, { base: 'Escribe: elle parle vite.', target: 'elle parle vite.' }, { base: 'Escribe: ils mangent tot.', target: 'ils mangent tot.' }, { base: 'Escribe: je suis ici.', target: 'je suis ici.' }] },
+      { id: 'spelling-4', category: 'spelling', title: 'Ortografía 4: Preguntas', explanation: 'Refuerza preguntas útiles.', phrases: [{ base: 'Escribe: ou est le bus ?', target: 'ou est le bus ?' }, { base: 'Escribe: comment ca va ?', target: 'comment ca va ?' }, { base: 'Escribe: quelle heure est il ?', target: 'quelle heure est il ?' }, { base: 'Escribe: ou est la gare ?', target: 'ou est la gare ?' }, { base: 'Escribe: peux tu aider ?', target: 'peux tu aider ?' }] },
+      { id: 'spelling-5', category: 'spelling', title: 'Ortografía 5: Precisión final', explanation: 'Cierra el bloque con precisión alta.', phrases: [{ base: 'Escribe: bonjour a tous.', target: 'bonjour a tous.' }, { base: 'Escribe: je veux apprendre.', target: 'je veux apprendre.' }, { base: 'Escribe: merci pour ton aide.', target: 'merci pour ton aide.' }, { base: 'Escribe: cette lecon est finie.', target: 'cette lecon est finie.' }, { base: 'Escribe: continue demain.', target: 'continue demain.' }] }
+    ]
+  };
 
   const PUNCTUATION = ['.', ',', ';', ':', '!', '?'];
   const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -625,7 +707,35 @@
     profileLeagueProgress: $('profileLeagueProgress'),
     profileArenaBadge: $('profileArenaBadge'),
     profileArenaTrophies: $('profileArenaTrophies'),
-    profileArenaChart: $('profileArenaChart')
+    profileArenaChart: $('profileArenaChart'),
+    langBaseSelect: $('langBaseSelect'),
+    langTargetSelect: $('langTargetSelect'),
+    languagesActivePath: $('languagesActivePath'),
+    languagesMotivation: $('languagesMotivation'),
+    langProfileTarget: $('langProfileTarget'),
+    langProfileXp: $('langProfileXp'),
+    langProfileHearts: $('langProfileHearts'),
+    langProfileGems: $('langProfileGems'),
+    langProfileXpProgress: $('langProfileXpProgress'),
+    languagesPath: $('languagesPath'),
+    languageLessonPanel: $('languageLessonPanel'),
+    languageLessonTitle: $('languageLessonTitle'),
+    languageLessonDescription: $('languageLessonDescription'),
+    languageLessonProgressLabel: $('languageLessonProgressLabel'),
+    languageLessonAcc: $('languageLessonAcc'),
+    languageLessonWpm: $('languageLessonWpm'),
+    languageLessonProgressBar: $('languageLessonProgressBar'),
+    languagePromptBase: $('languagePromptBase'),
+    languagePromptHint: $('languagePromptHint'),
+    languageTargetDisplay: $('languageTargetDisplay'),
+    languageTypingInput: $('languageTypingInput'),
+    languageCheckBtn: $('languageCheckBtn'),
+    languageLessonFeedback: $('languageLessonFeedback'),
+    languageCloseLessonBtn: $('languageCloseLessonBtn'),
+    languageDonateBtn: $('languageDonateBtn'),
+    langTotalXpProfile: $('langTotalXpProfile'),
+    langLessonsDoneProfile: $('langLessonsDoneProfile'),
+    langGemsProfile: $('langGemsProfile')
   };
 
   function init() {
@@ -637,6 +747,7 @@
     renderTextDisplay();
     updateCaretPosition();
     initVersusUI();
+    initLanguagesBeta();
     initCompetitiveUI();
   }
 
@@ -691,44 +802,53 @@
       app_version: '1.0'
     };
 
-    // Webhook de TEST para registro en n8n.
-    // Para producción, cambia SOLO esta URL por:
-    // https://n8n.srv1369665.hstgr.cloud/webhook/api/register
-    const registerWebhookUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register';
+    // Se envía a ambos webhooks para maximizar captura del evento de registro.
+    // Webhook TEST:
+    const registerWebhookTestUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register';
+    // Webhook PRODUCCIÓN:
+    const registerWebhookProdUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook/api/register';
+
+    const requestBody = {
+      username: username,
+      email: email,
+      password: password,
+      created_at: profileSeed.created_at,
+      tests_started: profileSeed.tests_started,
+      restarts: profileSeed.restarts,
+      total_xp: profileSeed.total_xp,
+      arena_trophies: profileSeed.arena_trophies,
+      arena_name: profileSeed.arena_name,
+      league_points: profileSeed.league_points,
+      league_label: profileSeed.league_label,
+      avg_wpm: profileSeed.avg_wpm,
+      best_wpm: profileSeed.best_wpm,
+      total_tests: profileSeed.total_tests,
+      app_version: profileSeed.app_version
+    };
 
     let payload;
     try {
-      const response = await fetch(registerWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username,
-          email: email,
-          password: password,
-          created_at: profileSeed.created_at,
-          tests_started: profileSeed.tests_started,
-          restarts: profileSeed.restarts,
-          total_xp: profileSeed.total_xp,
-          arena_trophies: profileSeed.arena_trophies,
-          arena_name: profileSeed.arena_name,
-          league_points: profileSeed.league_points,
-          league_label: profileSeed.league_label,
-          avg_wpm: profileSeed.avg_wpm,
-          best_wpm: profileSeed.best_wpm,
-          total_tests: profileSeed.total_tests,
-          app_version: profileSeed.app_version
+      const webhookResults = await Promise.allSettled(
+        [registerWebhookTestUrl, registerWebhookProdUrl].map(async url => {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) return null;
+          const data = await response.json();
+          return data;
         })
+      );
+
+      const successResult = webhookResults.find(result => {
+        return result.status === 'fulfilled' && result.value && result.value.success === true;
       });
 
-      if (!response.ok) {
-        alert('Error al registrar usuario');
-        return false;
-      }
-
-      payload = await response.json();
+      payload = successResult && successResult.status === 'fulfilled' ? successResult.value : null;
     } catch (_) {
-      alert('Error de conexión al registrar usuario');
-      return false;
+      payload = null;
     }
 
     if (!payload || payload.success !== true) {
@@ -784,11 +904,122 @@
     STATE.currentUser = {
       email: user.email,
       username: user.username,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      n8nUserId: user.n8nUserId || null
     };
     localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
     updateAuthUI();
     return true;
+  }
+
+  function hashText(input) {
+    const text = String(input || '');
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'h' + Math.abs(hash).toString(16);
+  }
+
+  function getCurrentRemoteUserId() {
+    if (STATE.currentUser && STATE.currentUser.n8nUserId) return STATE.currentUser.n8nUserId;
+    if (!STATE.currentUser || !STATE.currentUser.email) return null;
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const user = users[STATE.currentUser.email];
+    if (user && user.n8nUserId) {
+      STATE.currentUser.n8nUserId = user.n8nUserId;
+      localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
+      return user.n8nUserId;
+    }
+    return STATE.currentUser.email;
+  }
+
+  async function parseWebhookResponse(response) {
+    const raw = await response.text();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return { raw: raw };
+    }
+  }
+
+  async function sendTestResultToWebhooks(testRecord) {
+    const userId = getCurrentRemoteUserId();
+    if (!userId) {
+      console.warn('Test sin userId remoto; no se envía webhook');
+      return;
+    }
+
+    const requestBody = {
+      userId: userId,
+      mode: testRecord.mode || 'solo',
+      versusOutcome: testRecord.versusOutcome || null,
+      wpm: Number(testRecord.wpm || 0),
+      rawWpm: Number(testRecord.rawWpm || testRecord.wpm || 0),
+      acc: Number(testRecord.acc || 0),
+      consistency: Number(testRecord.consistency || 0),
+      charsCorrect: Number(testRecord.charsCorrect || 0),
+      charsIncorrect: Number(testRecord.charsIncorrect || 0),
+      timeSeconds: Number(testRecord.time || 0),
+      type: testRecord.type || 'words',
+      duration: Number(testRecord.duration || 0),
+      wordCount: Number(testRecord.wordCount || 0),
+      language: testRecord.language || STATE.currentLanguage,
+      difficulty: testRecord.difficulty || STATE.currentDifficulty,
+      botDifficulty: testRecord.botDifficulty || null,
+      punctuation: testRecord.punctuation || 'off',
+      numbers: testRecord.numbers || 'off',
+      tags: Array.isArray(testRecord.tags) ? testRecord.tags : [],
+      textId: testRecord.textId || [testRecord.type || 'words', testRecord.language || 'es', testRecord.difficulty || '1k'].join('-'),
+      textHash: testRecord.textHash || hashText(testRecord.textSource || ''),
+      replay: testRecord.replay || {
+        timeline: Array.isArray(testRecord.wpmHistory) ? testRecord.wpmHistory : [],
+        meta: {
+          savedAt: testRecord.date,
+          mode: testRecord.mode || 'solo',
+          source: 'typehub-web'
+        }
+      },
+      appVersion: testRecord.appVersion || '1.0'
+    };
+
+    try {
+      const results = await Promise.allSettled(
+        TEST_WEBHOOK_URLS.map(async url => {
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
+            const parsed = await parseWebhookResponse(response);
+            return { ok: response.ok, status: response.status, data: parsed };
+          } catch (_) {
+            // Fallback para entornos con CORS estricto: intenta enviar igualmente.
+            await fetch(url, {
+              method: 'POST',
+              mode: 'no-cors',
+              body: JSON.stringify(requestBody)
+            });
+            return { ok: true, status: 0, data: { noCors: true } };
+          }
+        })
+      );
+
+      const hasSuccess = results.some(result => {
+        if (result.status !== 'fulfilled' || !result.value) return false;
+        if (result.value.ok) return true;
+        return result.value.data && result.value.data.success === true;
+      });
+
+      if (!hasSuccess) {
+        console.warn('No se pudo confirmar guardado remoto del test', results);
+      }
+    } catch (_) {
+      console.warn('Error enviando test a webhooks');
+    }
   }
 
   function loginUserByEmail(email, password) {
@@ -1186,12 +1417,14 @@
     const user = users[STATE.currentUser.email];
     if (!user) return;
 
-    user.tests.push({
+    const savedTest = {
       wpm: testData.wpm,
       rawWpm: testData.rawWpm,
       acc: testData.acc,
       consistency: testData.consistency,
       chars: testData.chars,
+      charsCorrect: Number(testData.charsCorrect || 0),
+      charsIncorrect: Number(testData.charsIncorrect || 0),
       time: testData.time,
       type: testData.type,
       mode: testData.mode || 'solo',
@@ -1204,11 +1437,21 @@
       punctuation: testData.punctuation,
       numbers: testData.numbers,
       tags: testData.tags || [],
+      textId: testData.textId || null,
+      textHash: testData.textHash || null,
+      replay: testData.replay || null,
+      wpmHistory: Array.isArray(testData.wpmHistory) ? testData.wpmHistory.slice() : [],
+      appVersion: testData.appVersion || '1.0',
+      textSource: testData.textSource || '',
       date: new Date().toISOString()
-    });
+    };
+
+    user.tests.push(savedTest);
 
     users[STATE.currentUser.email] = user;
     localStorage.setItem('users', JSON.stringify(users));
+
+    void sendTestResultToWebhooks(savedTest);
   }
 
   function bumpUserCounter(field, amount) {
@@ -1704,6 +1947,53 @@
       });
     }
 
+    if (ELEMENTS.langBaseSelect) {
+      ELEMENTS.langBaseSelect.addEventListener('change', e => {
+        STATE.languages.base = e.target.value;
+        ensureLanguagePairValidity();
+        persistLanguagesState();
+        renderLanguagesSection();
+      });
+    }
+
+    if (ELEMENTS.langTargetSelect) {
+      ELEMENTS.langTargetSelect.addEventListener('change', e => {
+        STATE.languages.target = e.target.value;
+        ensureLanguagePairValidity();
+        persistLanguagesState();
+        renderLanguagesSection();
+      });
+    }
+
+    if (ELEMENTS.languageCheckBtn) {
+      ELEMENTS.languageCheckBtn.addEventListener('click', () => {
+        submitLanguagePhrase();
+      });
+    }
+
+    if (ELEMENTS.languageTypingInput) {
+      ELEMENTS.languageTypingInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitLanguagePhrase();
+        }
+      });
+    }
+
+    if (ELEMENTS.languageCloseLessonBtn) {
+      ELEMENTS.languageCloseLessonBtn.addEventListener('click', () => {
+        STATE.languages.activeLesson = null;
+        renderLanguagesLessonPanel();
+      });
+    }
+
+    if (ELEMENTS.languageDonateBtn) {
+      ELEMENTS.languageDonateBtn.addEventListener('click', e => {
+        e.preventDefault();
+        rewardLanguageSupportClick();
+      });
+    }
+
     if (ELEMENTS.arenaBenefitsToggle) {
       ELEMENTS.arenaBenefitsToggle.addEventListener('click', () => {
         const list = ELEMENTS.arenaBenefitsList;
@@ -2067,6 +2357,8 @@
         acc: accRounded,
         consistency: consistency,
         chars: STATE.correctChars + STATE.incorrectChars,
+        charsCorrect: STATE.correctChars,
+        charsIncorrect: STATE.incorrectChars,
         time: Math.ceil(timeInSeconds),
         type: STATE.currentType,
         duration: STATE.currentDuration,
@@ -2074,7 +2366,18 @@
         language: STATE.currentLanguage,
         difficulty: STATE.currentDifficulty,
         punctuation: STATE.optPunctuation ? 'on' : 'off',
-        numbers: STATE.optNumbers ? 'on' : 'off'
+        numbers: STATE.optNumbers ? 'on' : 'off',
+        textId: [STATE.currentType, STATE.currentLanguage, STATE.currentDifficulty].join('-'),
+        textHash: hashText(STATE.testText),
+        replay: {
+          timeline: STATE.wpmHistory.slice(),
+          finalInputLength: ELEMENTS.testInput && ELEMENTS.testInput.value ? ELEMENTS.testInput.value.length : 0,
+          correctedChars: STATE.correctedChars,
+          charStates: STATE.charStates.slice(0, Math.min(STATE.charStates.length, 1200))
+        },
+        wpmHistory: STATE.wpmHistory.slice(),
+        appVersion: '1.0',
+        textSource: STATE.testText
       });
     }
 
@@ -3021,6 +3324,8 @@
       acc: Math.round(result.user.acc),
       consistency: result.user.consistency,
       chars: STATE.versus.player.correctChars + STATE.versus.player.incorrectChars,
+      charsCorrect: STATE.versus.player.correctChars,
+      charsIncorrect: STATE.versus.player.incorrectChars,
       time: Math.ceil(Math.max(1, STATE.versus.elapsedMs) / 1000),
       type: result.config.modeType,
       mode: 'versus-bot',
@@ -3032,7 +3337,18 @@
       botDifficulty: result.config.botDifficulty,
       punctuation: 'off',
       numbers: 'off',
-      tags: ['versus', 'bot']
+      tags: ['versus', 'bot'],
+      textId: ['versus', result.config.language, result.config.difficulty].join('-'),
+      textHash: hashText(STATE.versus.sharedText),
+      replay: {
+        userTimeline: result.user.history,
+        botTimeline: result.bot.history,
+        elapsedMs: STATE.versus.elapsedMs,
+        reason: result.reason
+      },
+      wpmHistory: result.user.history,
+      appVersion: '1.0',
+      textSource: STATE.versus.sharedText
     });
 
     displayProfile();
@@ -3071,6 +3387,333 @@
     if (wpm < 115) return 'Oro';
     if (wpm < 145) return 'Platino';
     return 'Diamante';
+  }
+
+  function getLanguageStorageKey() {
+    return 'typehubLanguagesBeta';
+  }
+
+  function defaultLanguagesProfile() {
+    return {
+      xpByTarget: { es: 0, en: 0, fr: 0 },
+      gems: 0,
+      completedLessons: {},
+      categoryRewards: {},
+      preferences: { base: 'es', target: 'en' }
+    };
+  }
+
+  function initLanguagesBeta() {
+    const raw = localStorage.getItem(getLanguageStorageKey());
+    let parsed = null;
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (_) {
+        parsed = null;
+      }
+    }
+    STATE.languages.profile = parsed ? { ...defaultLanguagesProfile(), ...parsed } : defaultLanguagesProfile();
+    STATE.languages.base = STATE.languages.profile.preferences.base || 'es';
+    STATE.languages.target = STATE.languages.profile.preferences.target || 'en';
+    ensureLanguagePairValidity();
+    if (ELEMENTS.langBaseSelect) ELEMENTS.langBaseSelect.value = STATE.languages.base;
+    if (ELEMENTS.langTargetSelect) ELEMENTS.langTargetSelect.value = STATE.languages.target;
+    renderLanguagesSection();
+  }
+
+  function ensureLanguagePairValidity() {
+    if (STATE.languages.base === STATE.languages.target) {
+      const fallback = ['es', 'en', 'fr'].find(lang => lang !== STATE.languages.base) || 'en';
+      STATE.languages.target = fallback;
+      if (ELEMENTS.langTargetSelect) ELEMENTS.langTargetSelect.value = fallback;
+    }
+    STATE.languages.profile.preferences = { base: STATE.languages.base, target: STATE.languages.target };
+  }
+
+  function persistLanguagesState() {
+    localStorage.setItem(getLanguageStorageKey(), JSON.stringify(STATE.languages.profile));
+  }
+
+  function getLanguagePairKey() {
+    return STATE.languages.base + '-' + STATE.languages.target;
+  }
+
+  function getLessonsForCurrentPair() {
+    return LANGUAGE_LESSON_SETS[getLanguagePairKey()] || [];
+  }
+
+  // Lógica de desbloqueo del mapa: primera lección abierta, resto por cadena de completado.
+  function getLessonState(lesson, index, lessons) {
+    const pairKey = getLanguagePairKey();
+    const completedMap = STATE.languages.profile.completedLessons[pairKey] || {};
+    const completed = !!completedMap[lesson.id] && completedMap[lesson.id].completed;
+    if (completed) return 'completed';
+    if (index === 0) return 'unlocked';
+    const prevLesson = lessons[index - 1];
+    const prevCompleted = !!completedMap[prevLesson.id] && completedMap[prevLesson.id].completed;
+    return prevCompleted ? 'unlocked' : 'locked';
+  }
+
+  function renderLanguagesSection() {
+    const baseLabel = LANGUAGE_LABELS[STATE.languages.base] || STATE.languages.base;
+    const targetLabel = LANGUAGE_LABELS[STATE.languages.target] || STATE.languages.target;
+    if (ELEMENTS.languagesActivePath) {
+      ELEMENTS.languagesActivePath.textContent = 'Estás aprendiendo ' + targetLabel + ' desde ' + baseLabel + '.';
+    }
+
+    const xp = Number(STATE.languages.profile.xpByTarget[STATE.languages.target] || 0);
+    const hearts = STATE.languages.session.hearts || STATE.languages.session.maxHearts;
+    if (ELEMENTS.langProfileTarget) ELEMENTS.langProfileTarget.textContent = targetLabel;
+    if (ELEMENTS.langProfileXp) ELEMENTS.langProfileXp.textContent = xp + ' XP';
+    if (ELEMENTS.langProfileHearts) ELEMENTS.langProfileHearts.textContent = hearts + '/' + STATE.languages.session.maxHearts;
+    if (ELEMENTS.langProfileGems) ELEMENTS.langProfileGems.textContent = String(STATE.languages.profile.gems || 0);
+    if (ELEMENTS.langProfileXpProgress) {
+      const pct = Math.max(0, Math.min(100, (xp % 400) / 4));
+      ELEMENTS.langProfileXpProgress.style.width = pct + '%';
+    }
+
+    const motivationPool = ['Buen trabajo, mantén el ritmo.', 'Hoy has hecho progreso real.', 'Vuelve mañana y sigue mejorando.', 'Cada frase te acerca a tu objetivo.'];
+    if (ELEMENTS.languagesMotivation) {
+      ELEMENTS.languagesMotivation.textContent = motivationPool[Math.floor(Math.random() * motivationPool.length)];
+    }
+
+    renderLanguagesPath();
+    renderLanguagesLessonPanel();
+    updateLanguageProfileStatsOnProfile();
+  }
+
+  function renderLanguagesPath() {
+    if (!ELEMENTS.languagesPath) return;
+    const lessons = getLessonsForCurrentPair();
+    if (!lessons.length) {
+      ELEMENTS.languagesPath.innerHTML = '<p class="languages-feedback">Por ahora esta combinación no tiene lecciones demo. Prueba Español → Inglés o Español → Francés.</p>';
+      return;
+    }
+
+    ELEMENTS.languagesPath.innerHTML = lessons.map((lesson, idx) => {
+      const status = getLessonState(lesson, idx, lessons);
+      const cat = CATEGORY_META[lesson.category] || CATEGORY_META.vocabulary;
+      const pairKey = getLanguagePairKey();
+      const completedInfo = (STATE.languages.profile.completedLessons[pairKey] || {})[lesson.id] || {};
+      const lessonXp = completedInfo.xp || 0;
+      const actionText = status === 'locked' ? 'Bloqueada' : (status === 'completed' ? 'Repetir' : 'Empezar');
+      const dotText = status === 'completed' ? '✓' : String(idx + 1);
+      return '<div class="language-node ' + status + '">' +
+        '<div class="language-node-dot">' + dotText + '</div>' +
+        '<div class="language-node-info">' +
+        '<span class="language-node-title">' + cat.icon + ' ' + lesson.title + '</span>' +
+        '<span class="language-node-sub">' + cat.label + '</span>' +
+        '<span class="language-node-xp">⭐ ' + lessonXp + ' XP</span>' +
+        '</div>' +
+        '<button class="language-node-action" data-lang-lesson="' + lesson.id + '" ' + (status === 'locked' ? 'disabled' : '') + '>' + actionText + '</button>' +
+        '</div>';
+    }).join('');
+
+    ELEMENTS.languagesPath.querySelectorAll('[data-lang-lesson]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lessonId = btn.getAttribute('data-lang-lesson');
+        startLanguageLesson(lessonId);
+      });
+    });
+  }
+
+  function startLanguageLesson(lessonId) {
+    const lessons = getLessonsForCurrentPair();
+    const lesson = lessons.find(l => l.id === lessonId);
+    if (!lesson) return;
+
+    STATE.languages.activeLesson = lesson;
+    STATE.languages.session.hearts = STATE.languages.session.maxHearts;
+    STATE.languages.session.phraseIndex = 0;
+    STATE.languages.session.phraseStats = [];
+    STATE.languages.session.phraseStartAt = Date.now();
+    STATE.languages.session.totalErrors = 0;
+    STATE.languages.session.finished = false;
+    renderLanguagesLessonPanel();
+  }
+
+  function normalizePhrase(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  function calcLevenshtein(a, b) {
+    const s = normalizePhrase(a);
+    const t = normalizePhrase(b);
+    const m = s.length;
+    const n = t.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[m][n];
+  }
+
+  // Lógica de XP/corazones/gemas para el modo Aprender Idiomas.
+  function submitLanguagePhrase() {
+    const lesson = STATE.languages.activeLesson;
+    if (!lesson || !ELEMENTS.languageTypingInput) return;
+    const phrase = lesson.phrases[STATE.languages.session.phraseIndex];
+    if (!phrase) return;
+
+    const typed = ELEMENTS.languageTypingInput.value;
+    const expected = phrase.target;
+    const errors = calcLevenshtein(typed, expected);
+    const acc = Math.max(0, ((Math.max(1, normalizePhrase(expected).length) - errors) / Math.max(1, normalizePhrase(expected).length)) * 100);
+    const elapsedMin = Math.max(0.01, (Date.now() - STATE.languages.session.phraseStartAt) / 60000);
+    const wpm = Math.max(0, Math.round((normalizePhrase(typed).length / 5) / elapsedMin));
+    const badPhrase = acc < 80 || errors > 2;
+
+    if (badPhrase) {
+      STATE.languages.session.hearts = Math.max(0, STATE.languages.session.hearts - 1);
+      if (ELEMENTS.languageLessonFeedback) {
+        ELEMENTS.languageLessonFeedback.textContent = 'Te has acercado, pero se perdió un corazón ❤️. Ajusta precisión y vuelve a intentarlo.';
+      }
+    } else {
+      const gain = 10 + (acc >= 95 ? 4 : 0);
+      STATE.languages.profile.xpByTarget[STATE.languages.target] = Number(STATE.languages.profile.xpByTarget[STATE.languages.target] || 0) + gain;
+      if (ELEMENTS.languageLessonFeedback) {
+        ELEMENTS.languageLessonFeedback.textContent = 'Buen trabajo. +' + gain + ' XP ⭐';
+      }
+    }
+
+    STATE.languages.session.phraseStats.push({ acc: acc, wpm: wpm, errors: errors, ok: !badPhrase });
+    STATE.languages.session.totalErrors += errors;
+
+    if (STATE.languages.session.hearts <= 0) {
+      if (ELEMENTS.languageLessonFeedback) {
+        ELEMENTS.languageLessonFeedback.textContent = 'Has perdido todos los corazones. Inténtalo de nuevo mañana o repite una lección más fácil.';
+      }
+      renderLanguagesSection();
+      persistLanguagesState();
+      return;
+    }
+
+    STATE.languages.session.phraseIndex += 1;
+    if (STATE.languages.session.phraseIndex >= lesson.phrases.length) {
+      finishLanguageLesson();
+      return;
+    }
+
+    STATE.languages.session.phraseStartAt = Date.now();
+    renderLanguagesLessonPanel();
+    persistLanguagesState();
+  }
+
+  function finishLanguageLesson() {
+    const lesson = STATE.languages.activeLesson;
+    if (!lesson) return;
+    const stats = STATE.languages.session.phraseStats;
+    const avgAcc = stats.length ? stats.reduce((s, p) => s + p.acc, 0) / stats.length : 0;
+    const avgWpm = stats.length ? stats.reduce((s, p) => s + p.wpm, 0) / stats.length : 0;
+    const success = avgAcc >= 85 && STATE.languages.session.hearts > 0;
+
+    if (success) {
+      const bonusXp = 30;
+      STATE.languages.profile.xpByTarget[STATE.languages.target] = Number(STATE.languages.profile.xpByTarget[STATE.languages.target] || 0) + bonusXp;
+      const pairKey = getLanguagePairKey();
+      if (!STATE.languages.profile.completedLessons[pairKey]) STATE.languages.profile.completedLessons[pairKey] = {};
+      STATE.languages.profile.completedLessons[pairKey][lesson.id] = {
+        completed: true,
+        xp: Math.round((STATE.languages.profile.completedLessons[pairKey][lesson.id] || {}).xp || 0) + bonusXp,
+        bestAcc: Math.max(avgAcc, Number((STATE.languages.profile.completedLessons[pairKey][lesson.id] || {}).bestAcc || 0))
+      };
+      checkCategoryReward(pairKey, lesson.category);
+      if (ELEMENTS.languageLessonFeedback) {
+        ELEMENTS.languageLessonFeedback.textContent = 'Lección superada. +' + bonusXp + ' XP de bonus ⭐';
+      }
+    } else if (ELEMENTS.languageLessonFeedback) {
+      ELEMENTS.languageLessonFeedback.textContent = 'Lección completada, pero no alcanzaste 85% global. Repite para desbloquear la siguiente.';
+    }
+
+    STATE.languages.session.finished = true;
+    persistLanguagesState();
+    renderLanguagesSection();
+    if (ELEMENTS.languageLessonWpm) ELEMENTS.languageLessonWpm.textContent = String(Math.round(avgWpm));
+    if (ELEMENTS.languageLessonAcc) ELEMENTS.languageLessonAcc.textContent = Math.round(avgAcc) + '%';
+  }
+
+  function checkCategoryReward(pairKey, category) {
+    const lessons = getLessonsForCurrentPair().filter(l => l.category === category);
+    const completedMap = STATE.languages.profile.completedLessons[pairKey] || {};
+    const allDone = lessons.every(lesson => completedMap[lesson.id] && completedMap[lesson.id].completed);
+    const rewardKey = pairKey + ':' + category;
+    if (allDone && !STATE.languages.profile.categoryRewards[rewardKey]) {
+      STATE.languages.profile.gems += 20;
+      STATE.languages.profile.categoryRewards[rewardKey] = true;
+      if (ELEMENTS.languageLessonFeedback) {
+        ELEMENTS.languageLessonFeedback.textContent = 'Categoría completada. +20 gemas 💎';
+      }
+    }
+  }
+
+  function renderLanguagesLessonPanel() {
+    const lesson = STATE.languages.activeLesson;
+    if (!lesson || !ELEMENTS.languageLessonPanel) {
+      if (ELEMENTS.languageLessonPanel) ELEMENTS.languageLessonPanel.style.display = 'none';
+      return;
+    }
+
+    const phrase = lesson.phrases[Math.min(lesson.phrases.length - 1, STATE.languages.session.phraseIndex)] || lesson.phrases[0];
+    const completedCount = STATE.languages.session.phraseStats.length;
+    const avgAcc = completedCount ? Math.round(STATE.languages.session.phraseStats.reduce((s, p) => s + p.acc, 0) / completedCount) : 100;
+    const avgWpm = completedCount ? Math.round(STATE.languages.session.phraseStats.reduce((s, p) => s + p.wpm, 0) / completedCount) : 0;
+    const progressPct = Math.round((completedCount / lesson.phrases.length) * 100);
+
+    ELEMENTS.languageLessonPanel.style.display = 'block';
+    if (ELEMENTS.languageLessonTitle) ELEMENTS.languageLessonTitle.textContent = lesson.title;
+    if (ELEMENTS.languageLessonDescription) ELEMENTS.languageLessonDescription.textContent = lesson.explanation;
+    if (ELEMENTS.languageLessonProgressLabel) {
+      ELEMENTS.languageLessonProgressLabel.textContent = Math.min(lesson.phrases.length, completedCount + 1) + '/' + lesson.phrases.length;
+    }
+    if (ELEMENTS.languageLessonAcc) ELEMENTS.languageLessonAcc.textContent = avgAcc + '%';
+    if (ELEMENTS.languageLessonWpm) ELEMENTS.languageLessonWpm.textContent = String(avgWpm);
+    if (ELEMENTS.languageLessonProgressBar) ELEMENTS.languageLessonProgressBar.style.width = progressPct + '%';
+    if (ELEMENTS.languagePromptBase) ELEMENTS.languagePromptBase.textContent = phrase.base;
+    if (ELEMENTS.languagePromptHint) {
+      ELEMENTS.languagePromptHint.textContent = 'Escribe la traducción en ' + (LANGUAGE_LABELS[STATE.languages.target] || STATE.languages.target) + '.';
+    }
+    if (ELEMENTS.languageTargetDisplay) {
+      const words = normalizePhrase(phrase.target).split(' ').filter(Boolean).length;
+      ELEMENTS.languageTargetDisplay.textContent = 'Objetivo: escribe la traducción (' + words + ' palabras aprox.)';
+    }
+    if (ELEMENTS.languageTypingInput) {
+      ELEMENTS.languageTypingInput.value = '';
+      ELEMENTS.languageTypingInput.focus();
+    }
+
+    if (ELEMENTS.langProfileHearts) {
+      ELEMENTS.langProfileHearts.textContent = STATE.languages.session.hearts + '/' + STATE.languages.session.maxHearts;
+    }
+  }
+
+  function updateLanguageProfileStatsOnProfile() {
+    const xpByTarget = STATE.languages.profile.xpByTarget || { es: 0, en: 0, fr: 0 };
+    const totalXp = Number(xpByTarget.es || 0) + Number(xpByTarget.en || 0) + Number(xpByTarget.fr || 0);
+    const completed = Object.values(STATE.languages.profile.completedLessons || {}).reduce((sum, byPair) => {
+      return sum + Object.values(byPair || {}).filter(v => v && v.completed).length;
+    }, 0);
+    if (ELEMENTS.langTotalXpProfile) ELEMENTS.langTotalXpProfile.textContent = totalXp + ' XP';
+    if (ELEMENTS.langLessonsDoneProfile) ELEMENTS.langLessonsDoneProfile.textContent = String(completed);
+    if (ELEMENTS.langGemsProfile) ELEMENTS.langGemsProfile.textContent = String(STATE.languages.profile.gems || 0);
+  }
+
+  function rewardLanguageSupportClick() {
+    STATE.languages.profile.gems += 5;
+    persistLanguagesState();
+    if (ELEMENTS.languageLessonFeedback) {
+      ELEMENTS.languageLessonFeedback.textContent = 'Gracias por apoyar el proyecto. +5 gemas 💎';
+    }
+    renderLanguagesSection();
   }
 
   function getArenaFromTrophies(trophies) {
@@ -3347,6 +3990,9 @@
       syncVersusNamesAndRanks();
       showVersusLoginHintIfNeeded();
       refreshVersusObjectiveUi();
+    }
+    if (sectionId === 'languages') {
+      renderLanguagesSection();
     }
   }
 

@@ -25,6 +25,7 @@
     <nav class="nav">
       <button class="nav-btn active" data-section="test">Test</button>
       <button class="nav-btn" data-section="versus">Versus</button>
+      <button class="nav-btn" data-section="languages">Aprender Idiomas</button>
       <button class="nav-btn" data-section="leagues">Ligas</button>
       <button class="nav-btn" data-section="competitive">Competitivo</button>
       <button class="nav-btn" data-section="leaderboard">Clasificación</button>
@@ -577,6 +578,101 @@
       </div>
     </section>
 
+    <!-- Sección: Aprender Idiomas -->
+    <section id="languages" class="section">
+      <div class="languages-container">
+        <div class="content-container languages-header-card">
+          <h2>Aprender Idiomas (beta)</h2>
+          <p>Practica mecanografía mientras aprendes frases básicas en Español, Inglés y Francés. Esta es una versión demo, tu feedback es clave.</p>
+        </div>
+
+        <div class="languages-top-grid">
+          <div class="content-container languages-config-card">
+            <h3>Tu Ruta</h3>
+            <div class="languages-select-row">
+              <div class="mode-group">
+                <label for="langBaseSelect">Idioma base</label>
+                <select id="langBaseSelect">
+                  <option value="es">Español</option>
+                  <option value="en">Inglés</option>
+                  <option value="fr">Francés</option>
+                </select>
+              </div>
+              <div class="mode-group">
+                <label for="langTargetSelect">Idioma objetivo</label>
+                <select id="langTargetSelect">
+                  <option value="en">Inglés</option>
+                  <option value="fr">Francés</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+            </div>
+            <p class="languages-active-path" id="languagesActivePath">Estás aprendiendo Inglés desde Español.</p>
+            <p class="languages-motivation" id="languagesMotivation">Hoy has hecho progreso real. Sigue así.</p>
+          </div>
+
+          <div class="content-container languages-profile-card">
+            <h3>Perfil de Idioma</h3>
+            <div class="languages-profile-grid">
+              <div class="languages-profile-item"><span>Objetivo</span><strong id="langProfileTarget">Inglés</strong></div>
+              <div class="languages-profile-item"><span>Nivel</span><strong>Básico</strong></div>
+              <div class="languages-profile-item"><span>⭐ XP</span><strong id="langProfileXp">0 XP</strong></div>
+              <div class="languages-profile-item"><span>❤️ Corazones</span><strong id="langProfileHearts">3/3</strong></div>
+              <div class="languages-profile-item"><span>💎 Gemas</span><strong id="langProfileGems">0</strong></div>
+            </div>
+            <div class="versus-progress-track"><div class="versus-progress-fill" id="langProfileXpProgress"></div></div>
+            <p class="languages-sub-note">En el futuro podrás usar gemas para desbloquear contenido avanzado o saltar lecciones.</p>
+          </div>
+        </div>
+
+        <div class="content-container languages-path-card">
+          <h3>Camino de aprendizaje</h3>
+          <div class="languages-path" id="languagesPath"></div>
+        </div>
+
+        <div class="content-container languages-lesson-card" id="languageLessonPanel" style="display:none;">
+          <div class="languages-lesson-head">
+            <div>
+              <h3 id="languageLessonTitle">Lección</h3>
+              <p id="languageLessonDescription">Descripción breve de la lección.</p>
+            </div>
+            <button class="btn btn-secondary" id="languageCloseLessonBtn">Cerrar</button>
+          </div>
+
+          <div class="languages-lesson-stats">
+            <div class="stat"><span class="stat-label">Progreso</span><span class="stat-value" id="languageLessonProgressLabel">1/5</span></div>
+            <div class="stat"><span class="stat-label">ACC</span><span class="stat-value" id="languageLessonAcc">100%</span></div>
+            <div class="stat"><span class="stat-label">WPM</span><span class="stat-value" id="languageLessonWpm">0</span></div>
+          </div>
+
+          <div class="versus-progress-track"><div class="versus-progress-fill" id="languageLessonProgressBar"></div></div>
+
+          <div class="languages-prompt-wrap">
+            <p class="languages-prompt-base">Frase en idioma base:</p>
+            <div class="languages-prompt-text" id="languagePromptBase">Hola, ¿cómo estás?</div>
+            <p class="languages-prompt-hint" id="languagePromptHint">Escribe la traducción en inglés.</p>
+          </div>
+
+          <div class="test-area languages-typing-area">
+            <div class="text-display" id="languageTargetDisplay">your translation here</div>
+            <input type="text" id="languageTypingInput" class="languages-typing-input" placeholder="Escribe aquí y pulsa Enter" />
+          </div>
+
+          <div class="languages-lesson-actions">
+            <button class="btn btn-primary" id="languageCheckBtn">Comprobar frase</button>
+            <p id="languageLessonFeedback" class="languages-feedback">Buen trabajo, vamos a por la siguiente.</p>
+          </div>
+        </div>
+
+        <div class="content-container languages-donation-card">
+          <h3>Apoya TypeHub Languages</h3>
+          <p>TypeHub Languages está en beta. Si te gusta y quieres que sigamos construyendo más lecciones, puedes apoyar el proyecto.</p>
+          <a class="btn btn-primary" id="languageDonateBtn" href="#">Apoyar con una donación</a>
+          <p class="languages-donate-note">Cambia el enlace de donación en el atributo href de este botón cuando tengas tu URL final (Ko-fi/Stripe).</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Sección: Ligas -->
     <section id="leagues" class="section">
       <div class="content-container">
@@ -891,6 +987,24 @@
               <strong id="profileArenaBadge">Bronce</strong>
               <small id="profileArenaTrophies">0 / 500</small>
               <canvas id="profileArenaChart" width="180" height="180"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-block">
+          <h3>Aprender Idiomas (beta)</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span>xp idiomas total</span>
+              <strong id="langTotalXpProfile">0 XP</strong>
+            </div>
+            <div class="summary-item">
+              <span>lecciones completadas</span>
+              <strong id="langLessonsDoneProfile">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>gemas idiomas</span>
+              <strong id="langGemsProfile">0</strong>
             </div>
           </div>
         </div>

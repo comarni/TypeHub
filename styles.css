@@ -2019,6 +2019,271 @@ button {
   justify-self: center;
 }
 
+/* Languages Beta */
+.languages-container {
+  display: grid;
+  gap: 1rem;
+}
+
+.languages-header-card p {
+  color: var(--text-light);
+  margin-bottom: 0;
+}
+
+.languages-top-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1rem;
+}
+
+.languages-select-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.languages-active-path {
+  margin-top: 0.75rem;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+.languages-motivation {
+  color: var(--text-light);
+  font-size: 0.88rem;
+  margin-top: 0.35rem;
+}
+
+.languages-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.languages-profile-item {
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  padding: 0.52rem;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.languages-profile-item span {
+  color: var(--text-light);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.languages-profile-item strong {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+}
+
+.languages-sub-note {
+  margin-top: 0.6rem;
+  color: var(--text-light);
+  font-size: 0.82rem;
+}
+
+.languages-path {
+  display: grid;
+  gap: 0.8rem;
+  position: relative;
+  padding-left: 0.35rem;
+}
+
+.language-node {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 34%, transparent 66%);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black 12%);
+  padding: 0.55rem 0.7rem;
+  transition: var(--transition);
+}
+
+.language-node-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 40%, transparent 60%);
+}
+
+.language-node-info {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.language-node-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.language-node-sub {
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.language-node-xp {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.language-node.locked {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.language-node.locked .language-node-dot {
+  background: color-mix(in srgb, var(--bg-secondary) 82%, black 18%);
+  color: var(--text-light);
+}
+
+.language-node.unlocked {
+  border-color: color-mix(in srgb, var(--accent-primary) 55%, transparent 45%);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-primary) 16%, transparent 84%);
+}
+
+.language-node.unlocked .language-node-dot {
+  background: color-mix(in srgb, var(--accent-primary) 23%, var(--bg-primary) 77%);
+  color: var(--accent-primary);
+}
+
+.language-node.completed {
+  border-color: color-mix(in srgb, var(--success-color) 45%, transparent 55%);
+}
+
+.language-node.completed .language-node-dot {
+  background: color-mix(in srgb, var(--success-color) 28%, var(--bg-primary) 72%);
+  color: var(--success-color);
+}
+
+.language-node-action {
+  background: color-mix(in srgb, var(--accent-secondary) 55%, transparent 45%);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 70%, transparent 30%);
+  color: var(--text-primary);
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+.language-node.unlocked .language-node-action,
+.language-node.completed .language-node-action {
+  background: color-mix(in srgb, var(--accent-primary) 22%, var(--bg-secondary) 78%);
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent 50%);
+  color: var(--accent-primary);
+}
+
+.language-node-action:disabled {
+  cursor: not-allowed;
+}
+
+.languages-lesson-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.languages-lesson-head h3 {
+  margin: 0;
+}
+
+.languages-lesson-head p {
+  margin-top: 0.4rem;
+  color: var(--text-light);
+}
+
+.languages-lesson-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.languages-typing-area {
+  margin-top: 0.75rem;
+  min-height: 134px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+}
+
+.languages-typing-area .text-display {
+  text-align: left;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.languages-typing-input {
+  width: 100%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent 65%);
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.languages-typing-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 20%, transparent 80%);
+}
+
+.languages-prompt-wrap {
+  margin-top: 0.8rem;
+}
+
+.languages-prompt-base,
+.languages-prompt-hint {
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
+
+.languages-prompt-text {
+  margin: 0.35rem 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.03rem;
+  background: var(--bg-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.languages-lesson-actions {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.languages-feedback {
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
+
+.languages-donation-card p {
+  color: var(--text-light);
+}
+
+.languages-donate-note {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
 @media (min-width: 1360px) {
   .main {
     max-width: 1220px;
@@ -2219,6 +2484,13 @@ button {
   .leaderboard-table th,
   .leaderboard-table td {
     padding: 0.5rem;
+  }
+
+  .languages-top-grid,
+  .languages-select-row,
+  .languages-profile-grid,
+  .languages-lesson-stats {
+    grid-template-columns: 1fr;
   }
 }
 
