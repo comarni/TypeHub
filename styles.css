@@ -443,7 +443,7 @@ button {
 
 .text-display span {
   transition: color 0.08s linear, background-color 0.08s linear;
-  color: color-mix(in srgb, var(--text-primary) 45%, var(--bg-primary) 55%);
+  color: var(--text-light);
 }
 
 .text-display .correct {
@@ -456,7 +456,7 @@ button {
 }
 
 .text-display .current {
-  color: var(--text-primary);
+  color: color-mix(in srgb, var(--text-light) 90%, white 10%);
 }
 
 .typing-caret {
@@ -1450,6 +1450,616 @@ button {
   border-bottom: 2px solid var(--accent-primary);
 }
 
+/* Versus */
+.versus-container {
+  display: grid;
+  gap: 1rem;
+}
+
+.versus-config-panel {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 94%, white 6%), var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 40%, transparent 60%);
+  border-radius: 12px;
+  padding: 1.15rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.23);
+}
+
+.versus-config-panel h2 {
+  color: var(--accent-primary);
+  margin-bottom: 0.2rem;
+}
+
+.versus-subtitle {
+  color: var(--text-light);
+  margin-bottom: 0.8rem;
+  font-size: 0.92rem;
+}
+
+.versus-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.8rem;
+}
+
+.versus-config-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.versus-shortcut-hint {
+  margin-top: 0.65rem;
+  color: var(--text-light);
+  font-size: 0.83rem;
+}
+
+.versus-shortcut-hint kbd {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--accent-secondary);
+  border-radius: 3px;
+  padding: 0.18rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.versus-arena {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.versus-player-card {
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-secondary) 84%, black 16%), color-mix(in srgb, var(--bg-secondary) 96%, white 4%));
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent 65%);
+  border-radius: 12px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.versus-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.versus-card-header h3 {
+  color: var(--accent-primary);
+  margin: 0;
+}
+
+.versus-player-name {
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.versus-rank-pill {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 50%, transparent 50%);
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent 80%);
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.versus-live-stats {
+  background: color-mix(in srgb, var(--bg-primary) 86%, black 14%);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.versus-live-big {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  color: var(--accent-primary);
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+
+.versus-live-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.versus-progress-track {
+  margin-top: 0.55rem;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 86%, black 14%);
+  overflow: hidden;
+}
+
+.versus-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 45%, white 55%));
+  transition: width 0.18s linear;
+}
+
+.versus-test-area {
+  min-height: 195px;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.versus-test-area .text-display {
+  text-align: left;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.versus-bot-area {
+  border-style: dashed;
+}
+
+.versus-bot-mood {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
+
+.versus-bot-mood strong {
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.76rem;
+}
+
+.versus-global-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 0.6rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 90%, black 10%), var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent 65%);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.versus-global-item {
+  background: color-mix(in srgb, var(--bg-primary) 85%, black 15%);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.versus-global-item span {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.versus-global-item strong {
+  font-family: var(--font-mono);
+  color: var(--accent-primary);
+  font-size: 0.95rem;
+}
+
+#versusCountdown {
+  font-size: 1.5rem;
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary) 40%, transparent 60%);
+}
+
+#versusObjective {
+  font-size: 1.22rem;
+  color: color-mix(in srgb, var(--accent-primary) 85%, white 15%);
+  letter-spacing: 0.01em;
+}
+
+#versusMatchStatus {
+  color: color-mix(in srgb, var(--success-color) 75%, var(--accent-primary) 25%);
+}
+
+.versus-placeholder-board {
+  margin-top: 0.25rem;
+}
+
+.versus-countdown-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.versus-countdown-number {
+  font-family: var(--font-mono);
+  color: var(--accent-primary);
+  font-size: clamp(3.8rem, 12vw, 7.2rem);
+  font-weight: 700;
+  text-shadow: 0 10px 32px color-mix(in srgb, var(--accent-primary) 40%, transparent 60%);
+  animation: versusPulse 0.6s ease;
+}
+
+.league-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.league-card {
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 34%, transparent 66%);
+  border-radius: 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 82%, black 18%), color-mix(in srgb, var(--bg-secondary) 92%, white 8%));
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.league-card h4 {
+  color: var(--accent-primary);
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.league-card p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 0.86rem;
+}
+
+.league-card span {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.arena-sidebar {
+  position: fixed;
+  left: 14px;
+  top: 118px;
+  width: 230px;
+  z-index: 120;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, black 8%), var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent 65%);
+  border-radius: 12px;
+  padding: 0.8rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+
+.arena-sidebar-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.arena-sidebar-header p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.arena-sidebar-header strong {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+.arena-trophy {
+  font-size: 1.3rem;
+}
+
+.arena-toggle {
+  color: var(--text-light);
+  font-size: 1rem;
+}
+
+.arena-progress-line {
+  margin: 0.6rem 0 0.35rem;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-light);
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+}
+
+.arena-benefits-list {
+  margin-top: 0.55rem;
+  display: none;
+  list-style: none;
+  padding: 0;
+  gap: 0.25rem;
+}
+
+.arena-benefits-list.open {
+  display: grid;
+}
+
+.arena-benefits-list li {
+  color: var(--text-light);
+  font-size: 0.82rem;
+  padding-left: 0.95rem;
+  position: relative;
+}
+
+.arena-benefits-list li::before {
+  content: '•';
+  color: var(--accent-primary);
+  position: absolute;
+  left: 0;
+}
+
+.top100-fab {
+  position: fixed;
+  top: 120px;
+  right: 20px;
+  z-index: 130;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 50%, transparent 50%);
+  background: color-mix(in srgb, var(--accent-primary) 22%, var(--bg-primary) 78%);
+  color: var(--accent-primary);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  display: inline-flex;
+}
+
+.top100-dropdown {
+  position: fixed;
+  top: 162px;
+  right: 20px;
+  z-index: 130;
+  width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 40%, transparent 60%);
+  border-radius: 12px;
+  padding: 0.85rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+}
+
+.top100-dropdown h4 {
+  margin: 0 0 0.4rem;
+  color: var(--accent-primary);
+}
+
+.top100-dropdown ul {
+  margin: 0 0 0.55rem;
+  list-style: none;
+  padding: 0;
+}
+
+.top100-dropdown ul li {
+  color: var(--text-light);
+  font-size: 0.82rem;
+  margin: 0.22rem 0;
+}
+
+.top100-mini-board {
+  border-top: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  padding-top: 0.5rem;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.79rem;
+  display: grid;
+  gap: 0.24rem;
+}
+
+.comp-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  z-index: 140;
+  background: color-mix(in srgb, var(--bg-secondary) 90%, black 10%);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent 65%);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.84rem;
+  max-width: 300px;
+}
+
+.league-table .trend-up,
+.competitive-mini-row .trend-up {
+  color: var(--success-color);
+}
+
+.league-table .trend-down,
+.competitive-mini-row .trend-down {
+  color: var(--error-color);
+}
+
+.competitive-top-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.competitive-main-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.competitive-status-card,
+.competitive-streak-card,
+.competitive-panel {
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent 65%);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  padding: 0.9rem;
+}
+
+.competitive-status-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-light);
+  margin-bottom: 0.45rem;
+}
+
+.competitive-status-row strong {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+.competitive-note {
+  margin-top: 0.6rem;
+  color: var(--text-light);
+  font-size: 0.82rem;
+}
+
+.streak-ring-wrap {
+  position: relative;
+  width: 180px;
+  margin: 0 auto 0.55rem;
+}
+
+.streak-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+}
+
+.competitive-mini-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.competitive-mini-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 8px;
+  padding: 0.55rem;
+  color: var(--text-light);
+  align-items: center;
+}
+
+.competitive-mini-row strong {
+  font-family: var(--font-mono);
+  color: var(--accent-primary);
+  font-size: 0.84rem;
+}
+
+.competitive-mini-row em {
+  font-style: normal;
+  font-size: 0.79rem;
+}
+
+#competitiveWeeklyChart {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  background: color-mix(in srgb, var(--bg-secondary) 72%, black 28%);
+}
+
+.versus-elite-badge {
+  margin-top: 0.25rem;
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 55%, transparent 45%);
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent 85%);
+  padding: 0.08rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-competitive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.profile-competitive-card {
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent 70%);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.profile-competitive-card span,
+.profile-competitive-card small {
+  color: var(--text-light);
+}
+
+.profile-competitive-card strong {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+#profileArenaChart {
+  width: 100%;
+  max-width: 180px;
+  justify-self: center;
+}
+
+@media (min-width: 1360px) {
+  .main {
+    max-width: 1220px;
+    margin-left: 270px;
+  }
+}
+
+@keyframes versusPulse {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.versus-results-modal {
+  max-width: 850px;
+}
+
+.versus-result-banner {
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 45%, transparent 55%);
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent 86%);
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: center;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.versus-result-flavor {
+  text-align: center;
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+.versus-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
 /* Footer */
 .footer {
   background-color: var(--bg-secondary);
@@ -1563,6 +2173,41 @@ button {
     gap: 0.4rem;
   }
 
+  .versus-arena {
+    grid-template-columns: 1fr;
+  }
+
+  .versus-global-bar {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .versus-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .competitive-top-grid,
+  .competitive-main-grid,
+  .profile-competitive-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .arena-sidebar {
+    position: static;
+    width: 100%;
+    margin: 0 auto 0.9rem;
+  }
+
+  .top100-fab {
+    top: auto;
+    bottom: 72px;
+  }
+
+  .top100-dropdown {
+    top: auto;
+    bottom: 118px;
+    width: min(320px, calc(100vw - 24px));
+  }
+
   .profile-container #logoutBtn {
     justify-self: stretch;
   }
@@ -1604,6 +2249,10 @@ button {
   }
 
   .theme-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .versus-global-bar {
     grid-template-columns: 1fr;
   }
 }

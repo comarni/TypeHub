@@ -24,12 +24,48 @@
     </div>
     <nav class="nav">
       <button class="nav-btn active" data-section="test">Test</button>
+      <button class="nav-btn" data-section="versus">Versus</button>
+      <button class="nav-btn" data-section="leagues">Ligas</button>
+      <button class="nav-btn" data-section="competitive">Competitivo</button>
       <button class="nav-btn" data-section="leaderboard">Clasificación</button>
       <button class="nav-btn" data-section="about">About</button>
       <button class="nav-btn" data-section="settings">⚙️</button>
       <button class="nav-btn" data-section="login">👤</button>
     </nav>
   </header>
+
+  <aside class="arena-sidebar" id="arenaSidebar">
+    <div class="arena-sidebar-header">
+      <span class="arena-trophy">🏆</span>
+      <div>
+        <p>Arena actual</p>
+        <strong id="arenaCurrentName">Bronce</strong>
+      </div>
+      <button class="arena-toggle" id="arenaBenefitsToggle" aria-label="Mostrar ventajas de Arena">▾</button>
+    </div>
+    <div class="arena-progress-line">
+      <span id="arenaCurrentTrophies">0</span>
+      <span id="arenaNextThreshold">500</span>
+    </div>
+    <div class="versus-progress-track">
+      <div class="versus-progress-fill" id="arenaSidebarProgress"></div>
+    </div>
+    <ul class="arena-benefits-list" id="arenaBenefitsList"></ul>
+  </aside>
+
+  <button class="top100-fab" id="top100Fab" aria-label="Top 100 beneficios">Top 100</button>
+  <div class="top100-dropdown" id="top100Dropdown" style="display:none;">
+    <h4>Beneficios Elite</h4>
+    <ul>
+      <li>Matchmaking preferencial</li>
+      <li>Skins y partículas exclusivas</li>
+      <li>Acceso anticipado 24h</li>
+      <li>+15% trofeos por victoria</li>
+    </ul>
+    <div class="top100-mini-board" id="top100MiniBoard"></div>
+  </div>
+
+  <div class="comp-toast" id="competitiveToast" style="display:none;"></div>
 
   <!-- Main Content -->
   <main class="main">
@@ -330,6 +366,290 @@
       </div>
     </section>
 
+    <!-- Sección: Versus -->
+    <section id="versus" class="section">
+      <div class="versus-container">
+        <div class="versus-config-panel">
+          <h2>⚔️ Versus 1v1</h2>
+          <p class="versus-subtitle">Duelo local contra bot con simulación en tiempo real.</p>
+          <div class="versus-config-grid">
+            <div class="mode-group">
+              <label for="versusModeType">Modo:</label>
+              <select id="versusModeType">
+                <option value="time" selected>Tiempo</option>
+                <option value="words">Palabras</option>
+              </select>
+            </div>
+
+            <div class="mode-group" id="versusTimeGroup">
+              <label for="versusTimeSelect">Duración:</label>
+              <select id="versusTimeSelect">
+                <option value="15">15s</option>
+                <option value="30">30s</option>
+                <option value="60" selected>60s</option>
+                <option value="120">120s</option>
+              </select>
+            </div>
+
+            <div class="mode-group" id="versusWordsGroup" style="display:none;">
+              <label for="versusWordsSelect">Palabras:</label>
+              <select id="versusWordsSelect">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+
+            <div class="mode-group">
+              <label for="versusLanguage">Idioma:</label>
+              <select id="versusLanguage">
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
+              </select>
+            </div>
+
+            <div class="mode-group">
+              <label for="versusDifficulty">Dificultad:</label>
+              <select id="versusDifficulty">
+                <option value="1k">1k palabras</option>
+                <option value="5k">5k palabras</option>
+                <option value="20k">20k palabras</option>
+              </select>
+            </div>
+
+            <div class="mode-group">
+              <label for="versusBotDifficulty">Dificultad del bot:</label>
+              <select id="versusBotDifficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+                <option value="chaos">Chaos</option>
+              </select>
+            </div>
+          </div>
+          <div class="versus-config-actions">
+            <button class="btn btn-primary" id="versusStartBtn">Jugar contra bot</button>
+            <p class="versus-shortcut-hint"><kbd>Tab</kbd> + <kbd>Enter</kbd> o <kbd>Tab</kbd> + <kbd>Espacio</kbd> para reiniciar duelo</p>
+            <p id="versusLoginHint" class="results-note" style="display:none; margin-top:0.75rem;">Inicia sesión para guardar tu historial de duelos</p>
+          </div>
+        </div>
+
+        <div class="versus-arena" id="versusArena">
+          <div class="versus-column">
+            <div class="versus-player-card">
+              <div class="versus-card-header">
+                <div>
+                  <h3>Tú</h3>
+                  <p class="versus-player-name" id="versusUserName">Invitado</p>
+                  <span class="versus-elite-badge" id="versusEliteBadge" style="display:none;">Elite</span>
+                </div>
+                <span class="versus-rank-pill" id="versusUserRank">Bronce</span>
+              </div>
+
+              <div class="versus-live-stats">
+                <div class="versus-live-big" id="versusUserWpm">0</div>
+                <div class="versus-live-meta">
+                  <span id="versusUserAcc">ACC 100%</span>
+                  <span id="versusUserConsistency">Consistencia: 100%</span>
+                </div>
+                <div class="versus-progress-track">
+                  <div class="versus-progress-fill" id="versusUserProgress"></div>
+                </div>
+              </div>
+
+              <div class="test-area versus-test-area" id="versusUserArea">
+                <div class="text-display" id="versusUserText">Configura y pulsa "Jugar contra bot" para empezar.</div>
+                <span id="versusUserCaret" class="typing-caret" aria-hidden="true"></span>
+                <input
+                  type="text"
+                  id="versusInput"
+                  class="test-input"
+                  placeholder="Escribe aquí..."
+                  aria-label="Campo de entrada versus"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="versus-column">
+            <div class="versus-player-card">
+              <div class="versus-card-header">
+                <div>
+                  <h3>Bot</h3>
+                  <p class="versus-player-name" id="versusBotName">TypeBot</p>
+                </div>
+                <span class="versus-rank-pill" id="versusBotRank">Plata</span>
+              </div>
+
+              <div class="versus-live-stats">
+                <div class="versus-live-big" id="versusBotWpm">0</div>
+                <div class="versus-live-meta">
+                  <span id="versusBotAcc">ACC 100%</span>
+                  <span id="versusBotConsistency">Consistencia: 100%</span>
+                </div>
+                <div class="versus-progress-track">
+                  <div class="versus-progress-fill" id="versusBotProgress"></div>
+                </div>
+              </div>
+
+              <div class="test-area versus-test-area versus-bot-area" id="versusBotArea">
+                <div class="text-display" id="versusBotText">El bot estará listo cuando inicies el duelo.</div>
+              </div>
+
+              <div class="versus-bot-mood">
+                <span>Estado:</span>
+                <strong id="versusBotMood">calentando</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="versus-global-bar">
+          <div class="versus-global-item"><span>Cuenta atrás</span><strong id="versusCountdown">-</strong></div>
+          <div class="versus-global-item"><span>Estado</span><strong id="versusMatchStatus">En espera</strong></div>
+          <div class="versus-global-item"><span>Objetivo</span><strong id="versusObjective">Tiempo 60s</strong></div>
+          <div class="versus-global-item"><span>Ping</span><strong id="versusPing">Ping 42ms</strong></div>
+        </div>
+
+        <div class="content-container versus-placeholder-board">
+          <h3>Clasificación global online (próximamente)</h3>
+          <p>Datos simulados mientras se integra el backend competitivo real:</p>
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Jugador</th>
+                <th>Racha</th>
+                <th>ELO</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>ShadowKeys</td><td>12 W</td><td>2014</td><td>En cola</td></tr>
+              <tr><td>2</td><td>NovaType</td><td>8 W</td><td>1942</td><td>En partida</td></tr>
+              <tr><td>3</td><td>PulseCtrl</td><td>6 W</td><td>1890</td><td>Disponible</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="versus-countdown-overlay" id="versusCountdownOverlay" style="display:none;">
+          <div class="versus-countdown-number" id="versusCountdownNumber">3</div>
+        </div>
+
+        <div class="modal-overlay" id="versusModalOverlay" style="display:none;"></div>
+        <div class="results-modal versus-results-modal" id="versusResultsModal" style="display:none;">
+          <button class="modal-close" id="closeVersusResultsBtn" aria-label="Cerrar resultados del duelo">×</button>
+          <h2>Resultados del duelo</h2>
+          <div class="versus-result-banner" id="versusResultTitle">Empate</div>
+          <p class="versus-result-flavor" id="versusResultFlavor">Duelo muy parejo. Una revancha puede definir al ganador.</p>
+
+          <div class="versus-results-grid">
+            <div class="result-stat-block">
+              <div class="stat-header">Tu WPM</div>
+              <div class="stat-big" id="versusResultUserWpm">0</div>
+              <div class="stat-small" id="versusResultUserAcc">ACC 100%</div>
+            </div>
+            <div class="result-stat-block">
+              <div class="stat-header">Bot WPM</div>
+              <div class="stat-big" id="versusResultBotWpm">0</div>
+              <div class="stat-small" id="versusResultBotAcc">ACC 100%</div>
+            </div>
+            <div class="result-stat-block">
+              <div class="stat-header">Diferencia</div>
+              <div class="stat-big" id="versusResultDiff">+0 WPM</div>
+              <div class="stat-small" id="versusResultMeta">Sin ventaja clara</div>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <h3>Evolución de WPM (tú vs bot)</h3>
+            <canvas id="versusWpmChart" width="800" height="220"></canvas>
+          </div>
+
+          <div class="results-actions">
+            <button class="btn btn-primary" id="versusRematchBtn">Revancha</button>
+            <button class="btn btn-secondary" id="versusNewMatchBtn">Nuevo duelo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección: Ligas -->
+    <section id="leagues" class="section">
+      <div class="content-container">
+        <h2>📈 Ligas Semanales</h2>
+        <p>Reinicio todos los lunes. 10 divisiones por liga (I-X), ascenso/descenso automático y Hall of Fame para top 100.</p>
+        <table class="leaderboard-table league-table">
+          <thead>
+            <tr>
+              <th>Posición</th>
+              <th>Jugador</th>
+              <th>Liga/División</th>
+              <th>Puntos</th>
+              <th>Cambio Semanal</th>
+            </tr>
+          </thead>
+          <tbody id="leaguesTableBody">
+            <tr><td>1</td><td>@proplayer</td><td>Maestro II</td><td>981</td><td class="trend-up">▲ +12</td></tr>
+            <tr><td>2</td><td>@neonkeys</td><td>Maestro III</td><td>955</td><td class="trend-up">▲ +8</td></tr>
+            <tr><td>3</td><td>@typedemon</td><td>Diamante I</td><td>932</td><td class="trend-down">▼ -3</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Sección: Competitivo -->
+    <section id="competitive" class="section">
+      <div class="content-container">
+        <h2>🏅 Dashboard Competitivo</h2>
+        <p>Progreso unificado de Arena, Liga y Consistencia para jugadores que buscan escalar de forma constante.</p>
+
+        <div class="competitive-top-grid">
+          <div class="competitive-status-card">
+            <h3>Arena y Liga</h3>
+            <div class="competitive-status-row"><span>Arena actual</span><strong id="competitiveArenaLabel">Bronce</strong></div>
+            <div class="competitive-status-row"><span>Trofeos</span><strong id="competitiveTrophiesLabel">0 / 500</strong></div>
+            <div class="competitive-status-row"><span>Liga semanal</span><strong id="competitiveLeagueLabel">Bronce I</strong></div>
+            <div class="competitive-status-row"><span>Puntos de liga</span><strong id="competitivePointsLabel">0 pts</strong></div>
+            <div class="versus-progress-track"><div class="versus-progress-fill" id="competitiveDivisionProgress"></div></div>
+            <p class="competitive-note">Victoria Versus: 3 pts, Empate: 1 pt, bonus por streak y duelo superior en WPM.</p>
+          </div>
+
+          <div class="competitive-streak-card">
+            <h3>Consistencia Diaria</h3>
+            <div class="streak-ring-wrap">
+              <canvas id="streakRingChart" width="180" height="180"></canvas>
+              <div class="streak-ring-center" id="streakRingCenter">Streak: 0d</div>
+            </div>
+            <p id="streakRewardLabel">Bono activo: +20% XP</p>
+          </div>
+        </div>
+
+        <div class="competitive-main-grid">
+          <div class="competitive-panel">
+            <h3>Leaderboard de Liga</h3>
+            <div class="competitive-mini-list" id="competitiveLeagueMini"></div>
+          </div>
+          <div class="competitive-panel">
+            <h3>Mi Progreso Semanal</h3>
+            <canvas id="competitiveWeeklyChart" width="520" height="240"></canvas>
+          </div>
+        </div>
+
+        <div class="league-grid">
+          <article class="league-card"><h4>Bronce</h4><p>Sin ventajas competitivas.</p><span>0 - 500 trofeos</span></article>
+          <article class="league-card"><h4>Plata</h4><p>+5% multiplicador XP diario.</p><span>501 - 1500 trofeos</span></article>
+          <article class="league-card"><h4>Oro</h4><p>Duelos premium + skin dorada.</p><span>1501 - 3000 trofeos</span></article>
+          <article class="league-card"><h4>Platino</h4><p>+10% XP + prioridad matchmaking.</p><span>3001 - 6000 trofeos</span></article>
+          <article class="league-card"><h4>Diamante</h4><p>Skins exclusivas + límite superior de liga.</p><span>6001 - 12000 trofeos</span></article>
+          <article class="league-card"><h4>Maestro</h4><p>Sala Maestro + ventajas máximas.</p><span>12001+ trofeos</span></article>
+        </div>
+      </div>
+    </section>
+
     <!-- Sección: Leaderboard -->
     <section id="leaderboard" class="section">
       <div class="content-container">
@@ -520,10 +840,58 @@
               <span>time typing</span>
               <strong id="statTotalTime">00:00:00</strong>
             </div>
+            <div class="summary-item">
+              <span>duelos versus</span>
+              <strong id="versusDuelsPlayed">0</strong>
+              <small>total (online + bot)</small>
+            </div>
+            <div class="summary-item">
+              <span>victorias versus</span>
+              <strong id="versusWinRate">0%</strong>
+              <small>porcentaje de victorias</small>
+            </div>
+            <div class="summary-item">
+              <span>mejor wpm versus</span>
+              <strong id="versusBestWpm">0</strong>
+              <small>récord personal en duelos</small>
+            </div>
+            <div class="summary-item">
+              <span>duelos vs bot</span>
+              <strong id="versusBotPlayed">0</strong>
+              <small>partidas simuladas</small>
+            </div>
+            <div class="summary-item">
+              <span>duelos online</span>
+              <strong id="versusOnlinePlayed">0</strong>
+              <small>partidas de red</small>
+            </div>
+            <div class="summary-item">
+              <span>winrate online</span>
+              <strong id="versusOnlineWinRate">0%</strong>
+              <small>solo enfrentamientos reales</small>
+            </div>
           </div>
           <div class="profile-actions">
             <button class="btn btn-secondary" id="editProfileBtn">Edit profile</button>
             <button class="btn btn-primary" id="copyPublicLinkBtn">Copy public link</button>
+          </div>
+        </div>
+
+        <div class="profile-block">
+          <h3>Progreso Competitivo</h3>
+          <div class="profile-competitive-grid">
+            <div class="profile-competitive-card">
+              <span>Liga actual</span>
+              <strong id="profileLeagueBadge">Bronce I</strong>
+              <small id="profileLeaguePoints">0 pts</small>
+              <div class="versus-progress-track"><div class="versus-progress-fill" id="profileLeagueProgress"></div></div>
+            </div>
+            <div class="profile-competitive-card">
+              <span>Arena</span>
+              <strong id="profileArenaBadge">Bronce</strong>
+              <small id="profileArenaTrophies">0 / 500</small>
+              <canvas id="profileArenaChart" width="180" height="180"></canvas>
+            </div>
           </div>
         </div>
 
@@ -538,22 +906,7 @@
           <button class="btn btn-secondary" id="showAllPbsBtn">Show all personal bests</button>
         </div>
 
-        <div class="profile-block">
-          <div class="activity-header">
-            <h3>Actividad</h3>
-            <select id="activityRangeSelect">
-              <option value="day">last day</option>
-              <option value="week">last week</option>
-              <option value="month">last month</option>
-              <option value="3months">last 3 months</option>
-              <option value="12months" selected>last 12 months</option>
-              <option value="all">all time</option>
-            </select>
-          </div>
-          <p id="activityCountInfo"><span id="activityCountValue">0</span> tests <a href="#" id="activityLessLink">less</a> <a href="#" id="activityMoreLink">more</a></p>
-          <div class="activity-list" id="activityList"></div>
-          <p class="utc-note">Note: All activity data is using UTC time.</p>
-        </div>
+        
 
         <div class="profile-block">
           <h3>filters</h3>

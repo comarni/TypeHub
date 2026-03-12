@@ -326,7 +326,88 @@
       date: 'all', mode: 'all', time: 'all', words: 'all', difficulty: 'all',
       punctuation: 'all', numbers: 'all', language: 'all', funbox: 'all', tags: 'all'
     },
+    versus: {
+      isActive: false,
+      inCountdown: false,
+      status: 'idle',
+      countdownValue: '-',
+      ping: 42,
+      modeType: 'time',
+      duration: 60,
+      wordCount: 50,
+      language: 'es',
+      difficulty: '1k',
+      botDifficulty: 'medium',
+      sharedText: '',
+      matchStartAt: 0,
+      elapsedMs: 0,
+      timeLeft: 60,
+      timerInterval: null,
+      countdownInterval: null,
+      userSnapshotInterval: null,
+      botInterval: null,
+      pingInterval: null,
+      botMoodInterval: null,
+      matchMeta: null,
+      player: {
+        currentCharIndex: 0,
+        wordStartIndex: 0,
+        correctChars: 0,
+        incorrectChars: 0,
+        correctedChars: 0,
+        prevInputLength: 0,
+        charStates: [],
+        wpmHistory: []
+      },
+      bot: {
+        currentCharIndex: 0,
+        correctChars: 0,
+        incorrectChars: 0,
+        correctedChars: 0,
+        charStates: [],
+        wpmHistory: [],
+        pendingCorrections: [],
+        pauseUntil: 0,
+        fractionalCarry: 0,
+        mood: 'calentando'
+      },
+      lastResult: null,
+      lastConfig: null,
+      netStub: {
+        queueState: 'idle',
+        roomId: null,
+        remotePlayerId: 'bot-local',
+        remoteSnapshot: null
+      }
+    }
   };
+
+  const BOT_PROFILES = {
+    easy: { minWpm: 40, maxWpm: 60, minAcc: 88, maxAcc: 95, variance: 0.08 },
+    medium: { minWpm: 70, maxWpm: 100, minAcc: 94, maxAcc: 97, variance: 0.12 },
+    hard: { minWpm: 110, maxWpm: 150, minAcc: 96, maxAcc: 99, variance: 0.1 },
+    chaos: { minWpm: 45, maxWpm: 170, minAcc: 80, maxAcc: 98, variance: 0.35 }
+  };
+
+  const BOT_MOODS = ['calentando', 'concentrado', 'en racha', 'tilt'];
+
+  const ARENAS = [
+    { name: 'Bronce', min: 0, max: 500, benefits: ['Sin ventajas'] },
+    { name: 'Plata', min: 501, max: 1500, benefits: ['+5% multiplicador XP diario'] },
+    { name: 'Oro', min: 1501, max: 3000, benefits: ['Duelos premium', 'Skin de teclado dorada'] },
+    { name: 'Platino', min: 3001, max: 6000, benefits: ['+10% XP', 'Prioridad en matchmaking'] },
+    { name: 'Diamante', min: 6001, max: 12000, benefits: ['Skins exclusivas', 'Límite superior de liga'] },
+    { name: 'Maestro', min: 12001, max: Infinity, benefits: ['Ventajas máximas', 'Sala de duelos Maestro'] }
+  ];
+
+  const LEAGUE_NAMES = ['Bronce', 'Plata', 'Oro', 'Platino', 'Diamante', 'Maestro'];
+
+  const STREAK_REWARDS = [
+    { min: 1, max: 3, label: '+20% XP', visual: 'Estrella dorada' },
+    { min: 4, max: 7, label: '+50% XP + 50 trofeos', visual: 'Barra de fuego' },
+    { min: 8, max: 14, label: 'Doble XP + skin temporal', visual: 'Corona semanal' },
+    { min: 15, max: Infinity, label: 'Triple XP + entrada torneo', visual: 'Leyenda Activa' }
+  ];
 
   const PUNCTUATION = ['.', ',', ';', ':', '!', '?'];
   const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -463,6 +544,88 @@
     progressChartContainer: $('progressChartContainer'),
     progressChart: $('progressChart'),
     progressTabs: document.querySelectorAll('.progress-tab'),
+    versusModeType: $('versusModeType'),
+    versusTimeGroup: $('versusTimeGroup'),
+    versusWordsGroup: $('versusWordsGroup'),
+    versusTimeSelect: $('versusTimeSelect'),
+    versusWordsSelect: $('versusWordsSelect'),
+    versusLanguage: $('versusLanguage'),
+    versusDifficulty: $('versusDifficulty'),
+    versusBotDifficulty: $('versusBotDifficulty'),
+    versusStartBtn: $('versusStartBtn'),
+    versusLoginHint: $('versusLoginHint'),
+    versusUserName: $('versusUserName'),
+    versusUserRank: $('versusUserRank'),
+    versusUserWpm: $('versusUserWpm'),
+    versusUserAcc: $('versusUserAcc'),
+    versusUserConsistency: $('versusUserConsistency'),
+    versusUserProgress: $('versusUserProgress'),
+    versusUserText: $('versusUserText'),
+    versusUserArea: $('versusUserArea'),
+    versusUserCaret: $('versusUserCaret'),
+    versusInput: $('versusInput'),
+    versusBotName: $('versusBotName'),
+    versusBotRank: $('versusBotRank'),
+    versusBotWpm: $('versusBotWpm'),
+    versusBotAcc: $('versusBotAcc'),
+    versusBotConsistency: $('versusBotConsistency'),
+    versusBotProgress: $('versusBotProgress'),
+    versusBotText: $('versusBotText'),
+    versusBotMood: $('versusBotMood'),
+    versusCountdown: $('versusCountdown'),
+    versusMatchStatus: $('versusMatchStatus'),
+    versusObjective: $('versusObjective'),
+    versusPing: $('versusPing'),
+    versusCountdownOverlay: $('versusCountdownOverlay'),
+    versusCountdownNumber: $('versusCountdownNumber'),
+    versusModalOverlay: $('versusModalOverlay'),
+    versusResultsModal: $('versusResultsModal'),
+    closeVersusResultsBtn: $('closeVersusResultsBtn'),
+    versusResultTitle: $('versusResultTitle'),
+    versusResultFlavor: $('versusResultFlavor'),
+    versusResultUserWpm: $('versusResultUserWpm'),
+    versusResultUserAcc: $('versusResultUserAcc'),
+    versusResultBotWpm: $('versusResultBotWpm'),
+    versusResultBotAcc: $('versusResultBotAcc'),
+    versusResultDiff: $('versusResultDiff'),
+    versusResultMeta: $('versusResultMeta'),
+    versusWpmChart: $('versusWpmChart'),
+    versusRematchBtn: $('versusRematchBtn'),
+    versusNewMatchBtn: $('versusNewMatchBtn'),
+    versusDuelsPlayed: $('versusDuelsPlayed'),
+    versusWinRate: $('versusWinRate'),
+    versusBestWpm: $('versusBestWpm'),
+    versusBotPlayed: $('versusBotPlayed'),
+    versusOnlinePlayed: $('versusOnlinePlayed'),
+    versusOnlineWinRate: $('versusOnlineWinRate'),
+    arenaCurrentName: $('arenaCurrentName'),
+    arenaCurrentTrophies: $('arenaCurrentTrophies'),
+    arenaNextThreshold: $('arenaNextThreshold'),
+    arenaSidebarProgress: $('arenaSidebarProgress'),
+    arenaBenefitsToggle: $('arenaBenefitsToggle'),
+    arenaBenefitsList: $('arenaBenefitsList'),
+    top100Fab: $('top100Fab'),
+    top100Dropdown: $('top100Dropdown'),
+    top100MiniBoard: $('top100MiniBoard'),
+    competitiveToast: $('competitiveToast'),
+    competitiveArenaLabel: $('competitiveArenaLabel'),
+    competitiveTrophiesLabel: $('competitiveTrophiesLabel'),
+    competitiveLeagueLabel: $('competitiveLeagueLabel'),
+    competitivePointsLabel: $('competitivePointsLabel'),
+    competitiveDivisionProgress: $('competitiveDivisionProgress'),
+    streakRingChart: $('streakRingChart'),
+    streakRingCenter: $('streakRingCenter'),
+    streakRewardLabel: $('streakRewardLabel'),
+    competitiveLeagueMini: $('competitiveLeagueMini'),
+    competitiveWeeklyChart: $('competitiveWeeklyChart'),
+    leaguesTableBody: $('leaguesTableBody'),
+    versusEliteBadge: $('versusEliteBadge'),
+    profileLeagueBadge: $('profileLeagueBadge'),
+    profileLeaguePoints: $('profileLeaguePoints'),
+    profileLeagueProgress: $('profileLeagueProgress'),
+    profileArenaBadge: $('profileArenaBadge'),
+    profileArenaTrophies: $('profileArenaTrophies'),
+    profileArenaChart: $('profileArenaChart')
   };
 
   function init() {
@@ -473,6 +636,8 @@
     generateTestText();
     renderTextDisplay();
     updateCaretPosition();
+    initVersusUI();
+    initCompetitiveUI();
   }
 
   function loadSettings() {
@@ -555,10 +720,13 @@
     ELEMENTS.registerPanel.style.display = isLoggedIn ? 'none' : 'block';
     ELEMENTS.loginPanel.style.display = isLoggedIn ? 'none' : 'block';
     ELEMENTS.profilePanel.style.display = isLoggedIn ? 'block' : 'none';
+    syncVersusNamesAndRanks();
+    showVersusLoginHintIfNeeded();
     
     if (isLoggedIn) {
       displayProfile();
     }
+    initCompetitiveUI();
   }
 
   function displayProfile() {
@@ -592,6 +760,12 @@
     }
     if (ELEMENTS.statRestarts) ELEMENTS.statRestarts.textContent = stats.restartsPerCompleted.toFixed(1) + ' restarts per completed test';
     if (ELEMENTS.statTotalTime) ELEMENTS.statTotalTime.textContent = formatHms(stats.totalTime);
+    if (ELEMENTS.versusDuelsPlayed) ELEMENTS.versusDuelsPlayed.textContent = String(stats.versusDuelsPlayed);
+    if (ELEMENTS.versusWinRate) ELEMENTS.versusWinRate.textContent = stats.versusWinRate.toFixed(1) + '%';
+    if (ELEMENTS.versusBestWpm) ELEMENTS.versusBestWpm.textContent = String(Math.round(stats.versusBestWpm));
+    if (ELEMENTS.versusBotPlayed) ELEMENTS.versusBotPlayed.textContent = String(stats.versusBotPlayed);
+    if (ELEMENTS.versusOnlinePlayed) ELEMENTS.versusOnlinePlayed.textContent = String(stats.versusOnlinePlayed);
+    if (ELEMENTS.versusOnlineWinRate) ELEMENTS.versusOnlineWinRate.textContent = stats.versusOnlineWinRate.toFixed(1) + '%';
 
     renderPersonalBests(tests);
 
@@ -601,6 +775,7 @@
     renderRangeSummary(testsInRange, stats);
     drawProfileTrendChart(testsInRange, STATE.profileMetricMode);
     displayTestsHistory(testsInRange);
+    initCompetitiveUI();
   }
 
   function calculateStats(tests, userData) {
@@ -614,7 +789,14 @@
         totalXp: 0,
         level: 1,
         xpUntilNext: 500,
-        nextLevelPct: 0
+        nextLevelPct: 0,
+        versusDuelsPlayed: 0,
+        versusBotPlayed: 0,
+        versusOnlinePlayed: 0,
+        versusWins: 0,
+        versusWinRate: 0,
+        versusOnlineWinRate: 0,
+        versusBestWpm: 0
       };
     }
 
@@ -633,6 +815,13 @@
     const completedPct = testsStarted > 0 ? (tests.length / testsStarted) * 100 : 0;
     const level = Math.floor(totalXp / 500) + 1;
     const xpInLevel = totalXp % 500;
+    const versusTests = tests.filter(t => String(t.mode || '').startsWith('versus-'));
+    const versusBotTests = tests.filter(t => t.mode === 'versus-bot');
+    const versusOnlineTests = tests.filter(t => t.mode === 'versus-online');
+    const versusDuelsPlayed = versusTests.length;
+    const versusWins = versusTests.filter(t => t.versusOutcome === 'win').length;
+    const versusOnlineWins = versusOnlineTests.filter(t => t.versusOutcome === 'win').length;
+    const versusBestWpm = versusTests.length ? Math.max(...versusTests.map(t => Number(t.wpm || 0))) : 0;
 
     return {
       totalTests: tests.length,
@@ -643,7 +832,14 @@
       totalXp: totalXp,
       level: level,
       xpUntilNext: 500 - xpInLevel,
-      nextLevelPct: (xpInLevel / 500) * 100
+      nextLevelPct: (xpInLevel / 500) * 100,
+      versusDuelsPlayed: versusDuelsPlayed,
+      versusBotPlayed: versusBotTests.length,
+      versusOnlinePlayed: versusOnlineTests.length,
+      versusWins: versusWins,
+      versusWinRate: versusDuelsPlayed > 0 ? (versusWins / versusDuelsPlayed) * 100 : 0,
+      versusOnlineWinRate: versusOnlineTests.length > 0 ? (versusOnlineWins / versusOnlineTests.length) * 100 : 0,
+      versusBestWpm: versusBestWpm
     };
   }
 
@@ -660,7 +856,11 @@
     tests.slice().reverse().forEach(test => {
       const raw = Number(test.rawWpm || test.wpm || 0);
       const consistency = Number(test.consistency || 0);
-      const modeLabel = test.type === 'words' ? 'words ' + (test.wordCount || 50) : 'time ' + (test.duration || STATE.currentDuration);
+      const modeLabel = test.mode === 'versus-bot'
+        ? ('versus bot ' + (test.botDifficulty || 'medium'))
+        : test.mode === 'versus-online'
+          ? 'versus online'
+        : (test.type === 'words' ? 'words ' + (test.wordCount || 50) : 'time ' + (test.duration || STATE.currentDuration));
       const info = 'lang ' + (test.language || STATE.currentLanguage) + ' diff ' + (test.difficulty || STATE.currentDifficulty);
       const tags = test.tags && test.tags.length ? test.tags.join(', ') : 'no tags';
       const date = new Date(test.date).toLocaleDateString('en-GB', {
@@ -908,10 +1108,13 @@
       chars: testData.chars,
       time: testData.time,
       type: testData.type,
+      mode: testData.mode || 'solo',
+      versusOutcome: testData.versusOutcome || null,
       duration: testData.duration,
       wordCount: testData.wordCount,
       language: testData.language,
       difficulty: testData.difficulty,
+      botDifficulty: testData.botDifficulty || null,
       punctuation: testData.punctuation,
       numbers: testData.numbers,
       tags: testData.tags || [],
@@ -1335,8 +1538,106 @@
       });
     }
 
+    if (ELEMENTS.versusModeType) {
+      ELEMENTS.versusModeType.addEventListener('change', e => {
+        STATE.versus.modeType = e.target.value;
+        updateVersusModeUi();
+      });
+    }
+
+    if (ELEMENTS.versusTimeSelect) {
+      ELEMENTS.versusTimeSelect.addEventListener('change', e => {
+        STATE.versus.duration = parseInt(e.target.value, 10) || 60;
+        refreshVersusObjectiveUi();
+      });
+    }
+
+    if (ELEMENTS.versusWordsSelect) {
+      ELEMENTS.versusWordsSelect.addEventListener('change', e => {
+        STATE.versus.wordCount = parseInt(e.target.value, 10) || 50;
+        refreshVersusObjectiveUi();
+      });
+    }
+
+    if (ELEMENTS.versusLanguage) {
+      ELEMENTS.versusLanguage.addEventListener('change', e => {
+        STATE.versus.language = e.target.value;
+      });
+    }
+
+    if (ELEMENTS.versusDifficulty) {
+      ELEMENTS.versusDifficulty.addEventListener('change', e => {
+        STATE.versus.difficulty = e.target.value;
+      });
+    }
+
+    if (ELEMENTS.versusBotDifficulty) {
+      ELEMENTS.versusBotDifficulty.addEventListener('change', e => {
+        STATE.versus.botDifficulty = e.target.value;
+      });
+    }
+
+    if (ELEMENTS.versusStartBtn) {
+      ELEMENTS.versusStartBtn.addEventListener('click', () => {
+        startVersusMatch();
+      });
+    }
+
+    if (ELEMENTS.versusUserArea && ELEMENTS.versusInput) {
+      ELEMENTS.versusUserArea.addEventListener('click', () => {
+        if (STATE.versus.isActive) ELEMENTS.versusInput.focus();
+      });
+      ELEMENTS.versusInput.addEventListener('input', handleVersusInput);
+      ELEMENTS.versusInput.addEventListener('keydown', e => {
+        if (e.key === ' ' && !STATE.versus.isActive) e.preventDefault();
+      });
+    }
+
+    if (ELEMENTS.closeVersusResultsBtn) {
+      ELEMENTS.closeVersusResultsBtn.addEventListener('click', closeVersusResultsModal);
+    }
+
+    if (ELEMENTS.versusModalOverlay) {
+      ELEMENTS.versusModalOverlay.addEventListener('click', closeVersusResultsModal);
+    }
+
+    if (ELEMENTS.versusRematchBtn) {
+      ELEMENTS.versusRematchBtn.addEventListener('click', () => {
+        closeVersusResultsModal();
+        if (STATE.versus.lastConfig) {
+          applyVersusConfigToControls(STATE.versus.lastConfig);
+        }
+        startVersusMatch(true);
+      });
+    }
+
+    if (ELEMENTS.versusNewMatchBtn) {
+      ELEMENTS.versusNewMatchBtn.addEventListener('click', () => {
+        closeVersusResultsModal();
+        stopVersusMatch('idle');
+      });
+    }
+
+    if (ELEMENTS.arenaBenefitsToggle) {
+      ELEMENTS.arenaBenefitsToggle.addEventListener('click', () => {
+        const list = ELEMENTS.arenaBenefitsList;
+        if (!list) return;
+        const isOpen = list.classList.toggle('open');
+        ELEMENTS.arenaBenefitsToggle.textContent = isOpen ? '▴' : '▾';
+      });
+    }
+
+    if (ELEMENTS.top100Fab) {
+      ELEMENTS.top100Fab.addEventListener('click', () => {
+        if (!ELEMENTS.top100Dropdown) return;
+        const isVisible = ELEMENTS.top100Dropdown.style.display === 'block';
+        ELEMENTS.top100Dropdown.style.display = isVisible ? 'none' : 'block';
+      });
+    }
+
     window.addEventListener('resize', () => {
       updateCaretPosition();
+      updateVersusCaretPosition();
     });
 
     document.addEventListener('keydown', handleGlobalShortcuts);
@@ -1977,6 +2278,974 @@
     ctx.stroke();
   }
 
+  function initVersusUI() {
+    STATE.versus.modeType = ELEMENTS.versusModeType ? ELEMENTS.versusModeType.value : 'time';
+    STATE.versus.duration = ELEMENTS.versusTimeSelect ? parseInt(ELEMENTS.versusTimeSelect.value, 10) || 60 : 60;
+    STATE.versus.wordCount = ELEMENTS.versusWordsSelect ? parseInt(ELEMENTS.versusWordsSelect.value, 10) || 50 : 50;
+    STATE.versus.language = ELEMENTS.versusLanguage ? ELEMENTS.versusLanguage.value : 'es';
+    STATE.versus.difficulty = ELEMENTS.versusDifficulty ? ELEMENTS.versusDifficulty.value : '1k';
+    STATE.versus.botDifficulty = ELEMENTS.versusBotDifficulty ? ELEMENTS.versusBotDifficulty.value : 'medium';
+    updateVersusModeUi();
+    refreshVersusObjectiveUi();
+    syncVersusNamesAndRanks();
+    updateVersusLiveUi();
+  }
+
+  function updateVersusModeUi() {
+    const isTime = STATE.versus.modeType === 'time';
+    if (ELEMENTS.versusTimeGroup) ELEMENTS.versusTimeGroup.style.display = isTime ? 'flex' : 'none';
+    if (ELEMENTS.versusWordsGroup) ELEMENTS.versusWordsGroup.style.display = isTime ? 'none' : 'flex';
+    refreshVersusObjectiveUi();
+  }
+
+  function refreshVersusObjectiveUi() {
+    if (!ELEMENTS.versusObjective) return;
+    if (STATE.versus.modeType === 'time') {
+      ELEMENTS.versusObjective.textContent = 'Tiempo ' + STATE.versus.duration + 's';
+    } else {
+      ELEMENTS.versusObjective.textContent = 'Palabras ' + STATE.versus.wordCount;
+    }
+  }
+
+  function applyVersusConfigToControls(config) {
+    if (!config) return;
+    if (ELEMENTS.versusModeType) ELEMENTS.versusModeType.value = config.modeType;
+    if (ELEMENTS.versusTimeSelect) ELEMENTS.versusTimeSelect.value = String(config.duration);
+    if (ELEMENTS.versusWordsSelect) ELEMENTS.versusWordsSelect.value = String(config.wordCount);
+    if (ELEMENTS.versusLanguage) ELEMENTS.versusLanguage.value = config.language;
+    if (ELEMENTS.versusDifficulty) ELEMENTS.versusDifficulty.value = config.difficulty;
+    if (ELEMENTS.versusBotDifficulty) ELEMENTS.versusBotDifficulty.value = config.botDifficulty;
+    STATE.versus.modeType = config.modeType;
+    STATE.versus.duration = config.duration;
+    STATE.versus.wordCount = config.wordCount;
+    STATE.versus.language = config.language;
+    STATE.versus.difficulty = config.difficulty;
+    STATE.versus.botDifficulty = config.botDifficulty;
+    updateVersusModeUi();
+  }
+
+  function createVersusConfigFromControls() {
+    return {
+      modeType: ELEMENTS.versusModeType ? ELEMENTS.versusModeType.value : 'time',
+      duration: ELEMENTS.versusTimeSelect ? parseInt(ELEMENTS.versusTimeSelect.value, 10) || 60 : 60,
+      wordCount: ELEMENTS.versusWordsSelect ? parseInt(ELEMENTS.versusWordsSelect.value, 10) || 50 : 50,
+      language: ELEMENTS.versusLanguage ? ELEMENTS.versusLanguage.value : 'es',
+      difficulty: ELEMENTS.versusDifficulty ? ELEMENTS.versusDifficulty.value : '1k',
+      botDifficulty: ELEMENTS.versusBotDifficulty ? ELEMENTS.versusBotDifficulty.value : 'medium'
+    };
+  }
+
+  function createWordsByConfig(language, difficulty, targetWords) {
+    const langBank = WORD_BANKS[language] || WORD_BANKS.es;
+    const bank = langBank[difficulty] || langBank['1k'];
+    const words = [];
+    for (let i = 0; i < targetWords; i++) {
+      words.push(bank[Math.floor(Math.random() * bank.length)]);
+    }
+    return words.join(' ');
+  }
+
+  function createMatch(config) {
+    STATE.versus.netStub.queueState = 'matched-local';
+    STATE.versus.netStub.roomId = 'local-' + Date.now();
+    return {
+      id: STATE.versus.netStub.roomId,
+      createdAt: Date.now(),
+      mode: 'versus-bot',
+      opponent: 'bot',
+      config: config
+    };
+  }
+
+  function updateRemotePlayerState(snapshot) {
+    STATE.versus.netStub.remoteSnapshot = snapshot;
+    applyBotSnapshot(snapshot);
+  }
+
+  function onMatchFinished(result) {
+    showVersusResultsModal(result);
+  }
+
+  function startVersusMatch(isRematch) {
+    if (STATE.versus.isActive || STATE.versus.inCountdown) return;
+
+    const config = isRematch && STATE.versus.lastConfig
+      ? STATE.versus.lastConfig
+      : createVersusConfigFromControls();
+    applyVersusConfigToControls(config);
+
+    const match = createMatch(config);
+    STATE.versus.matchMeta = match;
+    STATE.versus.lastConfig = config;
+
+    const sharedText = config.modeType === 'words'
+      ? createWordsByConfig(config.language, config.difficulty, config.wordCount)
+      : createWordsByConfig(config.language, config.difficulty, 220);
+
+    STATE.versus.sharedText = sharedText;
+    STATE.versus.status = 'ready';
+    STATE.versus.timeLeft = config.duration;
+    STATE.versus.elapsedMs = 0;
+    resetVersusParticipants(sharedText);
+    syncVersusNamesAndRanks();
+    updateVersusLiveUi();
+    renderVersusText('user');
+    renderVersusText('bot');
+    updateVersusCaretPosition();
+    showVersusLoginHintIfNeeded();
+    runVersusCountdownThenStart();
+  }
+
+  function resetVersusParticipants(sharedText) {
+    const p = STATE.versus.player;
+    p.currentCharIndex = 0;
+    p.wordStartIndex = 0;
+    p.correctChars = 0;
+    p.incorrectChars = 0;
+    p.correctedChars = 0;
+    p.prevInputLength = 0;
+    p.wpmHistory = [];
+    p.charStates = new Array(sharedText.length).fill('empty');
+
+    const b = STATE.versus.bot;
+    b.currentCharIndex = 0;
+    b.correctChars = 0;
+    b.incorrectChars = 0;
+    b.correctedChars = 0;
+    b.wpmHistory = [];
+    b.pendingCorrections = [];
+    b.pauseUntil = 0;
+    b.fractionalCarry = 0;
+    b.charStates = new Array(sharedText.length).fill('empty');
+    b.mood = 'calentando';
+
+    if (ELEMENTS.versusInput) {
+      ELEMENTS.versusInput.value = '';
+      ELEMENTS.versusInput.disabled = true;
+    }
+  }
+
+  function runVersusCountdownThenStart() {
+    STATE.versus.inCountdown = true;
+    STATE.versus.countdownValue = '3';
+    if (ELEMENTS.versusMatchStatus) ELEMENTS.versusMatchStatus.textContent = 'Preparando duelo';
+    if (ELEMENTS.versusCountdown) ELEMENTS.versusCountdown.textContent = '3';
+    if (ELEMENTS.versusCountdownOverlay) ELEMENTS.versusCountdownOverlay.style.display = 'flex';
+    if (ELEMENTS.versusCountdownNumber) ELEMENTS.versusCountdownNumber.textContent = '3';
+
+    let count = 3;
+    STATE.versus.countdownInterval = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        STATE.versus.countdownValue = String(count);
+        if (ELEMENTS.versusCountdown) ELEMENTS.versusCountdown.textContent = String(count);
+        if (ELEMENTS.versusCountdownNumber) ELEMENTS.versusCountdownNumber.textContent = String(count);
+      } else if (count === 0) {
+        STATE.versus.countdownValue = 'GO';
+        if (ELEMENTS.versusCountdown) ELEMENTS.versusCountdown.textContent = 'GO';
+        if (ELEMENTS.versusCountdownNumber) ELEMENTS.versusCountdownNumber.textContent = 'GO';
+      } else {
+        clearInterval(STATE.versus.countdownInterval);
+        STATE.versus.countdownInterval = null;
+        STATE.versus.inCountdown = false;
+        if (ELEMENTS.versusCountdownOverlay) ELEMENTS.versusCountdownOverlay.style.display = 'none';
+        startVersusLoops();
+      }
+    }, 700);
+  }
+
+  function startVersusLoops() {
+    STATE.versus.isActive = true;
+    STATE.versus.status = 'running';
+    STATE.versus.matchStartAt = Date.now();
+    if (ELEMENTS.versusMatchStatus) ELEMENTS.versusMatchStatus.textContent = 'En curso';
+    if (ELEMENTS.versusInput) {
+      ELEMENTS.versusInput.disabled = false;
+      ELEMENTS.versusInput.focus();
+    }
+
+    STATE.versus.timerInterval = setInterval(() => {
+      STATE.versus.elapsedMs = Date.now() - STATE.versus.matchStartAt;
+      if (STATE.versus.modeType === 'time') {
+        const rem = Math.max(0, Math.ceil((STATE.versus.duration * 1000 - STATE.versus.elapsedMs) / 1000));
+        STATE.versus.timeLeft = rem;
+        if (ELEMENTS.versusObjective) ELEMENTS.versusObjective.textContent = 'Tiempo restante ' + rem + 's';
+        if (rem === 0) {
+          finishVersusMatch('time-up');
+        }
+      } else {
+        const userWordsLeft = countWordsRemaining(STATE.versus.sharedText, STATE.versus.player.currentCharIndex);
+        if (ELEMENTS.versusObjective) ELEMENTS.versusObjective.textContent = 'Palabras restantes ' + userWordsLeft;
+      }
+    }, 120);
+
+    STATE.versus.userSnapshotInterval = setInterval(() => {
+      captureVersusWpmSnapshots();
+      updateVersusLiveUi();
+      maybeFinishByCompletion();
+    }, 1000);
+
+    STATE.versus.botInterval = setInterval(() => {
+      tickBotSimulation();
+    }, 120);
+
+    STATE.versus.pingInterval = setInterval(() => {
+      STATE.versus.ping = 28 + Math.floor(Math.random() * 46);
+      if (ELEMENTS.versusPing) ELEMENTS.versusPing.textContent = 'Ping ' + STATE.versus.ping + 'ms';
+    }, 1300);
+
+    STATE.versus.botMoodInterval = setInterval(() => {
+      updateBotMood();
+    }, 1800);
+  }
+
+  function captureVersusWpmSnapshots() {
+    const minutes = Math.max(1, STATE.versus.elapsedMs) / 60000;
+    const userWpm = Math.round((STATE.versus.player.correctChars / 5) / minutes);
+    const botWpm = Math.round((STATE.versus.bot.correctChars / 5) / minutes);
+    STATE.versus.player.wpmHistory.push(Number.isFinite(userWpm) ? userWpm : 0);
+    STATE.versus.bot.wpmHistory.push(Number.isFinite(botWpm) ? botWpm : 0);
+  }
+
+  function tickBotSimulation() {
+    if (!STATE.versus.isActive) return;
+
+    const profile = BOT_PROFILES[STATE.versus.botDifficulty] || BOT_PROFILES.medium;
+    const bot = STATE.versus.bot;
+    const now = Date.now();
+    if (now < bot.pauseUntil) return;
+
+    if (Math.random() < 0.07) {
+      bot.pauseUntil = now + (200 + Math.floor(Math.random() * 600));
+      return;
+    }
+
+    const targetWpm = profile.minWpm + Math.random() * (profile.maxWpm - profile.minWpm);
+    const swing = 1 + ((Math.random() * 2 - 1) * profile.variance);
+    const charsPerSecond = Math.max(1, (targetWpm * 5 / 60) * swing);
+    const charsPerTick = (charsPerSecond * 0.12) + bot.fractionalCarry;
+    const fullChars = Math.floor(charsPerTick);
+    bot.fractionalCarry = charsPerTick - fullChars;
+
+    for (let i = 0; i < Math.max(1, fullChars); i++) {
+      if (bot.currentCharIndex >= STATE.versus.sharedText.length) break;
+      const idx = bot.currentCharIndex;
+      const expected = STATE.versus.sharedText[idx];
+      const targetAcc = profile.minAcc + Math.random() * (profile.maxAcc - profile.minAcc);
+      const isError = expected !== ' ' && (Math.random() * 100) > targetAcc;
+
+      if (isError) {
+        applyVersusCharTyping(bot, idx, '#', expected, true);
+        bot.pendingCorrections.push(idx);
+      } else {
+        applyVersusCharTyping(bot, idx, expected, expected, true);
+      }
+      bot.currentCharIndex += 1;
+
+      if (bot.pendingCorrections.length && Math.random() < 0.32) {
+        const cidx = bot.pendingCorrections.shift();
+        if (typeof cidx === 'number' && cidx < bot.currentCharIndex) {
+          applyVersusCorrection(bot, cidx);
+        }
+      }
+    }
+
+    const snapshot = {
+      currentCharIndex: bot.currentCharIndex,
+      correctChars: bot.correctChars,
+      incorrectChars: bot.incorrectChars,
+      correctedChars: bot.correctedChars,
+      charStates: bot.charStates.slice(),
+      mood: bot.mood
+    };
+    updateRemotePlayerState(snapshot);
+    maybeFinishByCompletion();
+  }
+
+  function applyBotSnapshot(snapshot) {
+    if (!snapshot) return;
+    const bot = STATE.versus.bot;
+    bot.currentCharIndex = snapshot.currentCharIndex;
+    bot.correctChars = snapshot.correctChars;
+    bot.incorrectChars = snapshot.incorrectChars;
+    bot.correctedChars = snapshot.correctedChars;
+    bot.charStates = snapshot.charStates;
+    bot.mood = snapshot.mood || bot.mood;
+    renderVersusText('bot');
+    updateVersusLiveUi();
+  }
+
+  function applyVersusCharTyping(sideState, pos, typed, expected, isBot) {
+    if (typed === expected) {
+      if (sideState.charStates[pos] === 'incorrect' || sideState.charStates[pos] === 'bot-pending') {
+        sideState.incorrectChars = Math.max(0, sideState.incorrectChars - 1);
+        sideState.correctedChars += 1;
+      } else if (sideState.charStates[pos] !== 'correct') {
+        sideState.correctChars += 1;
+      }
+      sideState.charStates[pos] = 'correct';
+      return;
+    }
+
+    if (sideState.charStates[pos] === 'correct') {
+      sideState.correctChars = Math.max(0, sideState.correctChars - 1);
+      sideState.incorrectChars += 1;
+    } else if (sideState.charStates[pos] !== 'incorrect' && sideState.charStates[pos] !== 'bot-pending') {
+      sideState.incorrectChars += 1;
+    }
+    sideState.charStates[pos] = isBot ? 'bot-pending' : 'incorrect';
+  }
+
+  function applyVersusCorrection(sideState, pos) {
+    if (pos < 0 || pos >= sideState.charStates.length) return;
+    if (sideState.charStates[pos] === 'bot-pending' || sideState.charStates[pos] === 'incorrect') {
+      sideState.incorrectChars = Math.max(0, sideState.incorrectChars - 1);
+      sideState.correctedChars += 1;
+      if (sideState.charStates[pos] !== 'correct') sideState.correctChars += 1;
+      sideState.charStates[pos] = 'correct';
+    }
+  }
+
+  function handleVersusInput() {
+    if (!STATE.versus.isActive) return;
+    const player = STATE.versus.player;
+    const input = ELEMENTS.versusInput.value;
+    const newLen = input.length;
+
+    if (newLen > STATE.versus.sharedText.length) {
+      ELEMENTS.versusInput.value = input.slice(0, STATE.versus.sharedText.length);
+      return;
+    }
+
+    if (newLen > player.prevInputLength) {
+      const pos = newLen - 1;
+      const typed = input[pos];
+      const expected = STATE.versus.sharedText[pos];
+      applyVersusCharTyping(player, pos, typed, expected, false);
+      player.currentCharIndex = newLen;
+    } else if (newLen < player.prevInputLength) {
+      const removedPos = player.prevInputLength - 1;
+      rollbackVersusChar(player, removedPos);
+      player.currentCharIndex = newLen;
+      player.wordStartIndex = Math.min(player.wordStartIndex, newLen);
+    }
+
+    player.prevInputLength = newLen;
+    renderVersusText('user');
+    updateVersusLiveUi();
+    maybeFinishByCompletion();
+  }
+
+  function rollbackVersusChar(sideState, pos) {
+    if (pos < 0 || pos >= sideState.charStates.length) return;
+    if (sideState.charStates[pos] === 'correct') {
+      sideState.correctChars = Math.max(0, sideState.correctChars - 1);
+    } else if (sideState.charStates[pos] === 'incorrect' || sideState.charStates[pos] === 'bot-pending') {
+      sideState.incorrectChars = Math.max(0, sideState.incorrectChars - 1);
+      sideState.correctedChars += 1;
+    }
+    sideState.charStates[pos] = 'empty';
+  }
+
+  function renderVersusText(side) {
+    const isUser = side === 'user';
+    const targetEl = isUser ? ELEMENTS.versusUserText : ELEMENTS.versusBotText;
+    const state = isUser ? STATE.versus.player : STATE.versus.bot;
+    if (!targetEl || !STATE.versus.sharedText) return;
+    let html = '';
+    for (let i = 0; i < STATE.versus.sharedText.length; i++) {
+      const char = STATE.versus.sharedText[i];
+      let className = '';
+      if (state.charStates[i] === 'correct') className = 'correct';
+      if (state.charStates[i] === 'incorrect' || state.charStates[i] === 'bot-pending') className = 'incorrect';
+      const currentClass = isUser && i === state.currentCharIndex ? ' current' : '';
+      html += '<span data-i="' + i + '" class="' + className + currentClass + '">' + escapeHtml(char) + '</span>';
+    }
+    targetEl.innerHTML = html;
+    if (isUser) updateVersusCaretPosition();
+  }
+
+  function updateVersusCaretPosition() {
+    if (!ELEMENTS.versusUserCaret || !ELEMENTS.versusUserText || !ELEMENTS.versusUserArea) return;
+    const idx = STATE.versus.player.currentCharIndex;
+    if (idx >= STATE.versus.sharedText.length || !STATE.versus.isActive) {
+      ELEMENTS.versusUserCaret.style.opacity = '0';
+      return;
+    }
+    const charEl = ELEMENTS.versusUserText.querySelector('[data-i="' + idx + '"]');
+    if (!charEl) return;
+    const areaRect = ELEMENTS.versusUserArea.getBoundingClientRect();
+    const charRect = charEl.getBoundingClientRect();
+    const x = charRect.left - areaRect.left;
+    const y = charRect.top - areaRect.top + (charRect.height * 0.08);
+    const h = Math.max(12, charRect.height * 0.84);
+    ELEMENTS.versusUserCaret.style.opacity = '1';
+    ELEMENTS.versusUserCaret.style.left = x + 'px';
+    ELEMENTS.versusUserCaret.style.top = y + 'px';
+    ELEMENTS.versusUserCaret.style.height = h + 'px';
+    charEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
+
+  function calculateConsistency(history) {
+    if (!history || history.length < 2) return 100;
+    const avg = history.reduce((a, b) => a + b, 0) / history.length;
+    if (avg <= 0) return 0;
+    const variance = history.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / history.length;
+    const stdDev = Math.sqrt(variance);
+    return Math.max(0, Math.min(100, 100 - (stdDev / avg * 100)));
+  }
+
+  function getVersusSideMetrics(sideState, elapsedMs) {
+    const minutes = Math.max(1, elapsedMs) / 60000;
+    const totalChars = sideState.correctChars + sideState.incorrectChars;
+    const wpm = Math.round((sideState.correctChars / 5) / minutes);
+    const acc = totalChars > 0 ? (sideState.correctChars / totalChars) * 100 : 100;
+    return {
+      wpm: Number.isFinite(wpm) ? wpm : 0,
+      wpmExact: (sideState.correctChars / 5) / minutes,
+      acc: acc,
+      progress: STATE.versus.sharedText.length > 0 ? (sideState.currentCharIndex / STATE.versus.sharedText.length) * 100 : 0,
+      consistency: calculateConsistency(sideState.wpmHistory)
+    };
+  }
+
+  function updateVersusLiveUi() {
+    const u = getVersusSideMetrics(STATE.versus.player, Math.max(1, STATE.versus.elapsedMs));
+    const b = getVersusSideMetrics(STATE.versus.bot, Math.max(1, STATE.versus.elapsedMs));
+    if (ELEMENTS.versusUserWpm) ELEMENTS.versusUserWpm.textContent = String(u.wpm);
+    if (ELEMENTS.versusUserAcc) ELEMENTS.versusUserAcc.textContent = 'ACC ' + Math.round(u.acc) + '%';
+    if (ELEMENTS.versusUserConsistency) ELEMENTS.versusUserConsistency.textContent = 'Consistencia: ' + Math.round(u.consistency) + '%';
+    if (ELEMENTS.versusUserProgress) ELEMENTS.versusUserProgress.style.width = Math.min(100, u.progress) + '%';
+
+    if (ELEMENTS.versusBotWpm) ELEMENTS.versusBotWpm.textContent = String(b.wpm);
+    if (ELEMENTS.versusBotAcc) ELEMENTS.versusBotAcc.textContent = 'ACC ' + Math.round(b.acc) + '%';
+    if (ELEMENTS.versusBotConsistency) ELEMENTS.versusBotConsistency.textContent = 'Consistencia: ' + Math.round(b.consistency) + '%';
+    if (ELEMENTS.versusBotProgress) ELEMENTS.versusBotProgress.style.width = Math.min(100, b.progress) + '%';
+
+    if (ELEMENTS.versusBotMood) ELEMENTS.versusBotMood.textContent = STATE.versus.bot.mood;
+  }
+
+  function countWordsRemaining(text, charIndex) {
+    if (!text) return 0;
+    const typed = text.slice(0, charIndex).trim();
+    const typedWords = typed ? typed.split(/\s+/).length : 0;
+    const totalWords = text.trim().split(/\s+/).length;
+    return Math.max(0, totalWords - typedWords);
+  }
+
+  function maybeFinishByCompletion() {
+    const userDone = STATE.versus.player.currentCharIndex >= STATE.versus.sharedText.length;
+    const botDone = STATE.versus.bot.currentCharIndex >= STATE.versus.sharedText.length;
+    if (STATE.versus.modeType === 'words' && userDone && botDone) {
+      finishVersusMatch('completed-both');
+      return;
+    }
+    if (STATE.versus.modeType === 'time' && userDone && botDone) {
+      finishVersusMatch('completed-both');
+    }
+  }
+
+  function updateBotMood() {
+    const bot = STATE.versus.bot;
+    const metrics = getVersusSideMetrics(bot, Math.max(1, STATE.versus.elapsedMs));
+    if (metrics.acc < 85) {
+      bot.mood = 'tilt';
+    } else if (metrics.wpm > 120) {
+      bot.mood = 'en racha';
+    } else if (metrics.wpm > 70) {
+      bot.mood = 'concentrado';
+    } else {
+      bot.mood = BOT_MOODS[Math.floor(Math.random() * BOT_MOODS.length)];
+    }
+    if (ELEMENTS.versusBotMood) ELEMENTS.versusBotMood.textContent = bot.mood;
+  }
+
+  function finishVersusMatch(reason) {
+    if (!STATE.versus.isActive) return;
+    stopVersusMatch('finished');
+
+    const elapsed = Math.max(1, STATE.versus.elapsedMs);
+    const userMetrics = getVersusSideMetrics(STATE.versus.player, elapsed);
+    const botMetrics = getVersusSideMetrics(STATE.versus.bot, elapsed);
+    const diff = userMetrics.wpm - botMetrics.wpm;
+    let outcome = 'draw';
+    if (diff > 0) outcome = 'win';
+    if (diff < 0) outcome = 'lose';
+
+    const result = {
+      reason: reason,
+      outcome: outcome,
+      diff: diff,
+      user: {
+        wpm: userMetrics.wpm,
+        wpmExact: userMetrics.wpmExact,
+        acc: userMetrics.acc,
+        consistency: userMetrics.consistency,
+        history: STATE.versus.player.wpmHistory.slice()
+      },
+      bot: {
+        wpm: botMetrics.wpm,
+        wpmExact: botMetrics.wpmExact,
+        acc: botMetrics.acc,
+        consistency: botMetrics.consistency,
+        history: STATE.versus.bot.wpmHistory.slice()
+      },
+      config: { ...STATE.versus.lastConfig }
+    };
+
+    STATE.versus.lastResult = result;
+    persistVersusResult(result);
+    onMatchFinished(result);
+  }
+
+  function stopVersusMatch(status) {
+    STATE.versus.isActive = false;
+    STATE.versus.inCountdown = false;
+    STATE.versus.status = status;
+    clearInterval(STATE.versus.timerInterval);
+    clearInterval(STATE.versus.countdownInterval);
+    clearInterval(STATE.versus.userSnapshotInterval);
+    clearInterval(STATE.versus.botInterval);
+    clearInterval(STATE.versus.pingInterval);
+    clearInterval(STATE.versus.botMoodInterval);
+    STATE.versus.timerInterval = null;
+    STATE.versus.countdownInterval = null;
+    STATE.versus.userSnapshotInterval = null;
+    STATE.versus.botInterval = null;
+    STATE.versus.pingInterval = null;
+    STATE.versus.botMoodInterval = null;
+    if (ELEMENTS.versusInput) ELEMENTS.versusInput.disabled = true;
+    if (ELEMENTS.versusMatchStatus) {
+      ELEMENTS.versusMatchStatus.textContent = status === 'finished' ? 'Finalizado' : 'En espera';
+    }
+    if (ELEMENTS.versusCountdown) ELEMENTS.versusCountdown.textContent = '-';
+    if (ELEMENTS.versusCountdownOverlay) ELEMENTS.versusCountdownOverlay.style.display = 'none';
+    updateVersusCaretPosition();
+  }
+
+  function showVersusResultsModal(result) {
+    if (!ELEMENTS.versusResultsModal || !ELEMENTS.versusModalOverlay) return;
+    const titleByOutcome = {
+      win: 'Has ganado',
+      lose: 'Has perdido',
+      draw: 'Empate'
+    };
+    const flavorByOutcome = {
+      win: 'Gran ritmo y control. El bot no pudo seguirte el paso.',
+      lose: 'Buena pelea. Ajusta precisión o ritmo para la revancha.',
+      draw: 'Duelo muy parejo. Una revancha puede definir al ganador.'
+    };
+    const diffPrefix = result.diff >= 0 ? '+' : '';
+
+    if (ELEMENTS.versusResultTitle) ELEMENTS.versusResultTitle.textContent = titleByOutcome[result.outcome] || 'Empate';
+    if (ELEMENTS.versusResultFlavor) ELEMENTS.versusResultFlavor.textContent = flavorByOutcome[result.outcome] || flavorByOutcome.draw;
+    if (ELEMENTS.versusResultUserWpm) ELEMENTS.versusResultUserWpm.textContent = String(result.user.wpm);
+    if (ELEMENTS.versusResultUserAcc) ELEMENTS.versusResultUserAcc.textContent = 'ACC ' + result.user.acc.toFixed(2) + '%';
+    if (ELEMENTS.versusResultBotWpm) ELEMENTS.versusResultBotWpm.textContent = String(result.bot.wpm);
+    if (ELEMENTS.versusResultBotAcc) ELEMENTS.versusResultBotAcc.textContent = 'ACC ' + result.bot.acc.toFixed(2) + '%';
+    if (ELEMENTS.versusResultDiff) ELEMENTS.versusResultDiff.textContent = diffPrefix + result.diff + ' WPM';
+    if (ELEMENTS.versusResultMeta) ELEMENTS.versusResultMeta.textContent = 'Bot ' + (result.config ? result.config.botDifficulty : STATE.versus.botDifficulty);
+
+    ELEMENTS.versusModalOverlay.style.display = 'block';
+    ELEMENTS.versusResultsModal.style.display = 'block';
+    drawVersusWpmChart(result.user.history, result.bot.history);
+  }
+
+  function closeVersusResultsModal() {
+    if (ELEMENTS.versusModalOverlay) ELEMENTS.versusModalOverlay.style.display = 'none';
+    if (ELEMENTS.versusResultsModal) ELEMENTS.versusResultsModal.style.display = 'none';
+  }
+
+  function drawVersusWpmChart(userData, botData) {
+    const canvas = ELEMENTS.versusWpmChart;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth || 760;
+    canvas.height = 220;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const pad = { top: 20, right: 20, bottom: 34, left: 46 };
+    const chartW = W - pad.left - pad.right;
+    const chartH = H - pad.top - pad.bottom;
+    const style = getComputedStyle(document.body);
+    const accent = style.getPropertyValue('--accent-primary').trim() || '#e2b714';
+    const botColor = style.getPropertyValue('--error-color').trim() || '#ff6b6b';
+    const textLight = style.getPropertyValue('--text-light').trim() || '#a8aab5';
+    const bgSec = style.getPropertyValue('--bg-secondary').trim() || '#2c2e31';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bgSec;
+    ctx.fillRect(0, 0, W, H);
+
+    const len = Math.max(userData.length, botData.length, 2);
+    const u = [...userData];
+    const b = [...botData];
+    while (u.length < len) u.push(u.length ? u[u.length - 1] : 0);
+    while (b.length < len) b.push(b.length ? b[b.length - 1] : 0);
+
+    const maxVal = Math.max(10, ...u, ...b);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.setLineDash([3, 4]);
+    for (let i = 0; i < 5; i++) {
+      const y = pad.top + (chartH / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(pad.left + chartW, y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = textLight;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i < 5; i++) {
+      const val = Math.round(maxVal - ((maxVal / 4) * i));
+      const y = pad.top + (chartH / 4) * i;
+      ctx.fillText(String(val), pad.left - 6, y + 3);
+    }
+
+    function drawLine(values, color) {
+      ctx.beginPath();
+      values.forEach((v, i) => {
+        const x = pad.left + (i / Math.max(1, values.length - 1)) * chartW;
+        const y = pad.top + chartH - (v / maxVal) * chartH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+
+    drawLine(u, accent);
+    drawLine(b, botColor);
+  }
+
+  function persistVersusResult(result) {
+    if (!STATE.currentUser) {
+      showVersusLoginHintIfNeeded();
+      return;
+    }
+
+    saveTestResult({
+      wpm: result.user.wpm,
+      rawWpm: result.user.wpmExact,
+      acc: Math.round(result.user.acc),
+      consistency: result.user.consistency,
+      chars: STATE.versus.player.correctChars + STATE.versus.player.incorrectChars,
+      time: Math.ceil(Math.max(1, STATE.versus.elapsedMs) / 1000),
+      type: result.config.modeType,
+      mode: 'versus-bot',
+      versusOutcome: result.outcome,
+      duration: result.config.duration,
+      wordCount: result.config.wordCount,
+      language: result.config.language,
+      difficulty: result.config.difficulty,
+      botDifficulty: result.config.botDifficulty,
+      punctuation: 'off',
+      numbers: 'off',
+      tags: ['versus', 'bot']
+    });
+
+    displayProfile();
+  }
+
+  function showVersusLoginHintIfNeeded() {
+    if (!ELEMENTS.versusLoginHint) return;
+    ELEMENTS.versusLoginHint.style.display = STATE.currentUser ? 'none' : 'block';
+  }
+
+  function syncVersusNamesAndRanks() {
+    const username = STATE.currentUser ? STATE.currentUser.username : 'Invitado';
+    if (ELEMENTS.versusUserName) ELEMENTS.versusUserName.textContent = username;
+    if (ELEMENTS.versusBotName) ELEMENTS.versusBotName.textContent = 'TypeBot';
+
+    const userMeanWpm = getUserAverageWpm();
+    const botProfile = BOT_PROFILES[STATE.versus.botDifficulty] || BOT_PROFILES.medium;
+    const botMeanWpm = Math.round((botProfile.minWpm + botProfile.maxWpm) / 2);
+    if (ELEMENTS.versusUserRank) ELEMENTS.versusUserRank.textContent = rankByWpm(userMeanWpm);
+    if (ELEMENTS.versusBotRank) ELEMENTS.versusBotRank.textContent = rankByWpm(botMeanWpm);
+    updateVersusEliteBadge(buildCompetitiveSnapshot().isTop100);
+  }
+
+  function getUserAverageWpm() {
+    if (!STATE.currentUser) return 55;
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const user = users[STATE.currentUser.email];
+    const tests = user && user.tests ? user.tests : [];
+    if (!tests.length) return 55;
+    return tests.reduce((s, t) => s + Number(t.wpm || 0), 0) / tests.length;
+  }
+
+  function rankByWpm(wpm) {
+    if (wpm < 55) return 'Bronce';
+    if (wpm < 85) return 'Plata';
+    if (wpm < 115) return 'Oro';
+    if (wpm < 145) return 'Platino';
+    return 'Diamante';
+  }
+
+  function getArenaFromTrophies(trophies) {
+    return ARENAS.find(a => trophies >= a.min && trophies <= a.max) || ARENAS[0];
+  }
+
+  function getCurrentStreakReward(streakDays) {
+    return STREAK_REWARDS.find(s => streakDays >= s.min && streakDays <= s.max) || STREAK_REWARDS[0];
+  }
+
+  function getLeagueDivisionFromPoints(points) {
+    const safe = Math.max(0, Math.floor(points));
+    const divisionsPerLeague = 10;
+    const pointsPerDivision = 80;
+    const totalDivisionIndex = Math.floor(safe / pointsPerDivision);
+    const leagueIndex = Math.min(LEAGUE_NAMES.length - 1, Math.floor(totalDivisionIndex / divisionsPerLeague));
+    const divisionIndex = (totalDivisionIndex % divisionsPerLeague) + 1;
+    const divisionRoman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][divisionIndex - 1];
+    const currentDivisionBase = totalDivisionIndex * pointsPerDivision;
+    const progressPct = ((safe - currentDivisionBase) / pointsPerDivision) * 100;
+    return {
+      label: LEAGUE_NAMES[leagueIndex] + ' ' + divisionRoman,
+      progressPct: Math.max(0, Math.min(100, progressPct))
+    };
+  }
+
+  function buildCompetitiveSnapshot() {
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const userData = STATE.currentUser ? users[STATE.currentUser.email] : null;
+    const tests = userData && userData.tests ? userData.tests : [];
+    const versus = tests.filter(t => String(t.mode || '').startsWith('versus-'));
+    const wins = versus.filter(t => t.versusOutcome === 'win').length;
+    const draws = versus.filter(t => t.versusOutcome === 'draw').length;
+
+    const daysWithActivity = new Set(
+      tests.map(t => new Date(t.date).toISOString().slice(0, 10))
+    );
+    const streakDays = Math.max(1, Math.min(30, daysWithActivity.size));
+    const streakReward = getCurrentStreakReward(streakDays);
+
+    const trophyBase = (wins * 45) + (draws * 18) + (tests.length * 4) + (streakDays * 5);
+    const trophies = Math.max(0, trophyBase);
+    const arena = getArenaFromTrophies(trophies);
+    const nextThreshold = arena.max === Infinity ? trophies : arena.max;
+    const progressPct = arena.max === Infinity
+      ? 100
+      : ((trophies - arena.min) / Math.max(1, arena.max - arena.min)) * 100;
+
+    const weeklyPoints = (wins * 3) + (draws * 1) + Math.floor(streakDays * 2.2) + Math.floor((getUserAverageWpm() - 40) / 6);
+    const league = getLeagueDivisionFromPoints(weeklyPoints);
+
+    const isTop100 = arena.name === 'Maestro' && weeklyPoints >= 380;
+    return {
+      trophies,
+      arena,
+      nextThreshold,
+      progressPct: Math.max(0, Math.min(100, progressPct)),
+      weeklyPoints,
+      league,
+      streakDays,
+      streakReward,
+      isTop100
+    };
+  }
+
+  function initCompetitiveUI() {
+    const snapshot = buildCompetitiveSnapshot();
+    renderArenaSidebar(snapshot);
+    renderLeagueTables(snapshot);
+    renderCompetitiveDashboard(snapshot);
+    renderProfileCompetitive(snapshot);
+    renderTop100Overlay(snapshot);
+    maybeShowCompetitiveResetToast(snapshot);
+    updateVersusEliteBadge(snapshot.isTop100);
+  }
+
+  function renderArenaSidebar(snapshot) {
+    if (ELEMENTS.arenaCurrentName) ELEMENTS.arenaCurrentName.textContent = snapshot.arena.name;
+    if (ELEMENTS.arenaCurrentTrophies) ELEMENTS.arenaCurrentTrophies.textContent = String(snapshot.trophies);
+    if (ELEMENTS.arenaNextThreshold) ELEMENTS.arenaNextThreshold.textContent = String(snapshot.nextThreshold);
+    if (ELEMENTS.arenaSidebarProgress) ELEMENTS.arenaSidebarProgress.style.width = snapshot.progressPct + '%';
+
+    if (ELEMENTS.arenaBenefitsList) {
+      ELEMENTS.arenaBenefitsList.innerHTML = snapshot.arena.benefits
+        .map(benefit => '<li>' + benefit + '</li>')
+        .join('');
+    }
+  }
+
+  function renderLeagueTables(snapshot) {
+    const basePlayers = [
+      { name: '@proplayer', league: 'Maestro II', points: 981, delta: '+12' },
+      { name: '@neonkeys', league: 'Maestro III', points: 955, delta: '+8' },
+      { name: '@typedemon', league: 'Diamante I', points: 932, delta: '-3' },
+      { name: '@keystorm', league: 'Diamante II', points: 901, delta: '+4' }
+    ];
+    const me = {
+      name: STATE.currentUser ? '@' + STATE.currentUser.username : '@invitado',
+      league: snapshot.league.label,
+      points: snapshot.weeklyPoints,
+      delta: '+3'
+    };
+    const rows = [...basePlayers, me].sort((a, b) => b.points - a.points);
+
+    if (ELEMENTS.leaguesTableBody) {
+      ELEMENTS.leaguesTableBody.innerHTML = rows.map((row, i) => {
+        const cls = String(row.delta).startsWith('-') ? 'trend-down' : 'trend-up';
+        const icon = String(row.delta).startsWith('-') ? '▼' : '▲';
+        return '<tr>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td>' + row.name + '</td>' +
+          '<td>' + row.league + '</td>' +
+          '<td>' + row.points + '</td>' +
+          '<td class="' + cls + '">' + icon + ' ' + row.delta + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    if (ELEMENTS.competitiveLeagueMini) {
+      ELEMENTS.competitiveLeagueMini.innerHTML = rows.slice(0, 6).map((row, i) => {
+        const cls = String(row.delta).startsWith('-') ? 'trend-down' : 'trend-up';
+        return '<div class="competitive-mini-row">' +
+          '<span>' + (i + 1) + '. ' + row.name + '</span>' +
+          '<strong>' + row.points + ' pts</strong>' +
+          '<em class="' + cls + '">' + row.delta + '</em>' +
+          '</div>';
+      }).join('');
+    }
+  }
+
+  function renderCompetitiveDashboard(snapshot) {
+    if (ELEMENTS.competitiveArenaLabel) ELEMENTS.competitiveArenaLabel.textContent = snapshot.arena.name;
+    if (ELEMENTS.competitiveTrophiesLabel) ELEMENTS.competitiveTrophiesLabel.textContent = snapshot.trophies + ' / ' + snapshot.nextThreshold;
+    if (ELEMENTS.competitiveLeagueLabel) ELEMENTS.competitiveLeagueLabel.textContent = snapshot.league.label;
+    if (ELEMENTS.competitivePointsLabel) ELEMENTS.competitivePointsLabel.textContent = snapshot.weeklyPoints + ' pts';
+    if (ELEMENTS.competitiveDivisionProgress) ELEMENTS.competitiveDivisionProgress.style.width = snapshot.league.progressPct + '%';
+    if (ELEMENTS.streakRingCenter) ELEMENTS.streakRingCenter.textContent = 'Streak: ' + snapshot.streakDays + 'd';
+    if (ELEMENTS.streakRewardLabel) {
+      ELEMENTS.streakRewardLabel.textContent = 'Bono activo: ' + snapshot.streakReward.label + ' · ' + snapshot.streakReward.visual;
+    }
+    drawRingChart(ELEMENTS.streakRingChart, snapshot.streakDays, 21);
+    drawCompetitiveWeeklyChart(snapshot.weeklyPoints);
+  }
+
+  function drawRingChart(canvas, value, max) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    const radius = Math.min(W, H) * 0.38;
+    const start = -Math.PI / 2;
+    const pct = Math.max(0, Math.min(1, value / Math.max(1, max)));
+    const style = getComputedStyle(document.body);
+    const accent = style.getPropertyValue('--accent-primary').trim() || '#e2b714';
+    const bg = style.getPropertyValue('--bg-secondary').trim() || '#2c2e31';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = bg;
+    ctx.lineWidth = 13;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, start, start + (Math.PI * 2 * pct));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 13;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  function drawCompetitiveWeeklyChart(points) {
+    const canvas = ELEMENTS.competitiveWeeklyChart;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth || 520;
+    canvas.height = 240;
+    const data = [Math.max(10, points - 26), Math.max(10, points - 19), Math.max(10, points - 12), Math.max(10, points - 7), Math.max(10, points - 3), Math.max(10, points - 1), points];
+    const W = canvas.width;
+    const H = canvas.height;
+    const pad = { top: 14, right: 14, bottom: 26, left: 34 };
+    const chartW = W - pad.left - pad.right;
+    const chartH = H - pad.top - pad.bottom;
+    const max = Math.max(...data);
+    const style = getComputedStyle(document.body);
+    const accent = style.getPropertyValue('--accent-primary').trim() || '#e2b714';
+    const textLight = style.getPropertyValue('--text-light').trim() || '#a8aab5';
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    for (let i = 0; i < 4; i++) {
+      const y = pad.top + (chartH / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(pad.left + chartW, y);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = pad.left + (i / (data.length - 1)) * chartW;
+      const y = pad.top + chartH - (v / max) * chartH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+
+    ctx.fillStyle = textLight;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach((d, i) => {
+      const x = pad.left + (i / (data.length - 1)) * chartW;
+      ctx.fillText(d, x, H - 6);
+    });
+  }
+
+  function renderProfileCompetitive(snapshot) {
+    if (ELEMENTS.profileLeagueBadge) ELEMENTS.profileLeagueBadge.textContent = snapshot.league.label;
+    if (ELEMENTS.profileLeaguePoints) ELEMENTS.profileLeaguePoints.textContent = snapshot.weeklyPoints + ' pts';
+    if (ELEMENTS.profileLeagueProgress) ELEMENTS.profileLeagueProgress.style.width = snapshot.league.progressPct + '%';
+    if (ELEMENTS.profileArenaBadge) ELEMENTS.profileArenaBadge.textContent = snapshot.arena.name;
+    if (ELEMENTS.profileArenaTrophies) ELEMENTS.profileArenaTrophies.textContent = snapshot.trophies + ' / ' + snapshot.nextThreshold;
+    drawRingChart(ELEMENTS.profileArenaChart, snapshot.progressPct, 100);
+  }
+
+  function renderTop100Overlay(snapshot) {
+    if (ELEMENTS.top100Fab) {
+      ELEMENTS.top100Fab.style.display = snapshot.isTop100 ? 'inline-flex' : 'none';
+    }
+    if (ELEMENTS.top100MiniBoard) {
+      const rows = [
+        '@proplayer · 2460',
+        '@neonkeys · 2430',
+        '@typedemon · 2394',
+        (STATE.currentUser ? '@' + STATE.currentUser.username : '@invitado') + ' · ' + (2300 + snapshot.weeklyPoints)
+      ];
+      ELEMENTS.top100MiniBoard.innerHTML = rows.map((r, i) => '<div>' + (i + 1) + '. ' + r + '</div>').join('');
+    }
+  }
+
+  function maybeShowCompetitiveResetToast(snapshot) {
+    if (!ELEMENTS.competitiveToast) return;
+    const day = new Date().getDay();
+    if (day !== 0) return;
+    ELEMENTS.competitiveToast.textContent = 'El reset semanal de ligas ocurre hoy. Mantén tu posición en ' + snapshot.league.label + '.';
+    ELEMENTS.competitiveToast.style.display = 'block';
+    setTimeout(() => {
+      if (ELEMENTS.competitiveToast) ELEMENTS.competitiveToast.style.display = 'none';
+    }, 5500);
+  }
+
+  function updateVersusEliteBadge(isTop100) {
+    if (!ELEMENTS.versusEliteBadge) return;
+    ELEMENTS.versusEliteBadge.style.display = isTop100 ? 'inline-flex' : 'none';
+  }
+
   function handleNavigation(e) {
     const sectionId = e.target.dataset.section;
     ELEMENTS.navButtons.forEach(b => b.classList.remove('active'));
@@ -1984,6 +3253,15 @@
     ELEMENTS.sections.forEach(s => s.classList.remove('active'));
     document.getElementById(sectionId)?.classList.add('active');
     if (sectionId !== 'test') pauseTest();
+    if (sectionId !== 'versus') {
+      stopVersusMatch('idle');
+      closeVersusResultsModal();
+    }
+    if (sectionId === 'versus') {
+      syncVersusNamesAndRanks();
+      showVersusLoginHintIfNeeded();
+      refreshVersusObjectiveUi();
+    }
   }
 
   function pauseTest() {
@@ -2017,7 +3295,8 @@
     }
 
     const tabEnterCombo = e.key === 'Enter' && (Date.now() - STATE.lastTabPressAt) <= 1500;
-    if ((e.key === 'Enter' && e.ctrlKey) || tabEnterCombo) {
+    const tabSpaceCombo = e.key === ' ' && (Date.now() - STATE.lastTabPressAt) <= 1500;
+    if ((e.key === 'Enter' && e.ctrlKey) || tabEnterCombo || tabSpaceCombo) {
       e.preventDefault();
       triggerQuickRestart();
       return;
@@ -2048,6 +3327,15 @@
       closeResults();
       return;
     }
+
+    const activeSection = document.querySelector('.section.active');
+    if (activeSection && activeSection.id === 'versus') {
+      stopVersusMatch('idle');
+      closeVersusResultsModal();
+      startVersusMatch(true);
+      return;
+    }
+
     rebuildTest();
   }
 
@@ -2060,15 +3348,17 @@
       return;
     }
 
-    const header = ['wpm', 'raw', 'accuracy', 'consistency', 'mode', 'language', 'difficulty', 'tags', 'date'];
+    const header = ['wpm', 'raw', 'accuracy', 'consistency', 'mode', 'submode', 'language', 'difficulty', 'botDifficulty', 'tags', 'date'];
     const rows = userData.tests.map(t => [
       Number(t.wpm || 0).toFixed(2),
       Number(t.rawWpm || t.wpm || 0).toFixed(2),
       Number(t.acc || 0).toFixed(2),
       Number(t.consistency || 0).toFixed(2),
+      t.mode || 'solo',
       t.type || 'words',
       t.language || 'es',
       t.difficulty || '1k',
+      t.botDifficulty || '',
       (t.tags || []).join('|'),
       t.date || ''
     ]);
