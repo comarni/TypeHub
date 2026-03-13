@@ -422,6 +422,20 @@
     'https://n8n.srv1369665.hstgr.cloud/webhook/api/login'
   ];
 
+  const PROFILE_WEBHOOK_BASE_URLS = [
+    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/profile',
+    'https://n8n.srv1369665.hstgr.cloud/webhook/api/profile'
+  ];
+
+  let profileSyncInFlight = false;
+  let warnedNullOrigin = false;
+
+  function isNullOriginRuntime() {
+    return typeof window !== 'undefined'
+      && !!window.location
+      && (window.location.protocol === 'file:' || window.location.origin === 'null');
+  }
+
   const ARENAS = [
     { name: 'Bronce', min: 0, max: 500, benefits: ['Sin ventajas'] },
     { name: 'Plata', min: 501, max: 1500, benefits: ['+5% multiplicador XP diario'] },
@@ -1196,6 +1210,8 @@
       rawWpm: Number(testRecord.rawWpm || testRecord.wpm || 0),
       acc: Number(testRecord.acc || 0),
       consistency: Number(testRecord.consistency || 0),
+      correctChars: Number(testRecord.charsCorrect || 0),
+      incorrectChars: Number(testRecord.charsIncorrect || 0),
       charsCorrect: Number(testRecord.charsCorrect || 0),
       charsIncorrect: Number(testRecord.charsIncorrect || 0),
       timeSeconds: Number(testRecord.time || 0),
@@ -1221,6 +1237,30 @@
       appVersion: testRecord.appVersion || '1.0'
     };
 
+    const normalizePayload = data => {
+      if (data === null || data === undefined) return null;
+      let current = data;
+      for (let i = 0; i < 3 && typeof current === 'string'; i++) {
+        try {
+          current = JSON.parse(current);
+        } catch (_) {
+          return { raw: current };
+        }
+      }
+      if (Array.isArray(current)) return current[0] || null;
+      return current;
+    };
+
+    const parseTestWebhookResult = data => {
+      const normalized = normalizePayload(data);
+      if (!normalized) return { success: false, statusCode: 0, payload: null };
+      const nested = normalizePayload(normalized.data);
+      const payload = nested && typeof nested === 'object' ? nested : normalized;
+      const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
+      const success = payload.success === true || (statusCode >= 200 && statusCode < 300 && !!payload.testId);
+      return { success, statusCode, payload };
+    };
+
     try {
       const results = await Promise.allSettled(
         TEST_WEBHOOK_URLS.map(async url => {
@@ -1233,21 +1273,16 @@
             const parsed = await parseWebhookResponse(response);
             return { ok: response.ok, status: response.status, data: parsed };
           } catch (_) {
-            // Fallback para entornos con CORS estricto: intenta enviar igualmente.
-            await fetch(url, {
-              method: 'POST',
-              mode: 'no-cors',
-              body: JSON.stringify(requestBody)
-            });
-            return { ok: true, status: 0, data: { noCors: true } };
+            return { ok: false, status: 0, data: null };
           }
         })
       );
 
       const hasSuccess = results.some(result => {
         if (result.status !== 'fulfilled' || !result.value) return false;
-        if (result.value.ok) return true;
-        return result.value.data && result.value.data.success === true;
+        const parsed = parseTestWebhookResult(result.value.data);
+        if (parsed.success) return true;
+        return result.value.ok && result.value.status >= 200 && result.value.status < 300;
       });
 
       if (!hasSuccess) {
@@ -1279,8 +1314,139 @@
     
     if (isLoggedIn) {
       displayProfile();
+      void syncRemoteProfile();
     }
     initCompetitiveUI();
+  }
+
+  async function syncRemoteProfile() {
+    if (!STATE.currentUser || profileSyncInFlight) return;
+    if (isNullOriginRuntime()) {
+      if (!warnedNullOrigin) {
+        console.warn('Profile sync remoto desactivado: origen null/file detectado. Usa http://localhost para pruebas con webhooks.');
+        warnedNullOrigin = true;
+      }
+      return;
+    }
+    const userId = getCurrentRemoteUserId();
+    if (!userId) return;
+
+    profileSyncInFlight = true;
+
+    const normalizePayload = data => {
+      if (data === null || data === undefined) return null;
+      let current = data;
+      for (let i = 0; i < 3 && typeof current === 'string'; i++) {
+        try {
+          current = JSON.parse(current);
+        } catch (_) {
+          return { raw: current };
+        }
+      }
+      if (Array.isArray(current)) return current[0] || null;
+      return current;
+    };
+
+    const parseProfileResult = data => {
+      const normalized = normalizePayload(data);
+      if (!normalized) return { success: false, statusCode: 0, payload: null };
+      const nested = normalizePayload(normalized.data);
+      const payload = nested && typeof nested === 'object' ? nested : normalized;
+      const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
+      return {
+        success: payload.success === true,
+        statusCode: statusCode,
+        payload: payload
+      };
+    };
+
+    try {
+      const results = await Promise.allSettled(
+        PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => {
+          const url = baseUrl + '/' + encodeURIComponent(userId);
+          try {
+            const response = await fetch(url, { method: 'GET' });
+            const data = await parseWebhookResponse(response);
+            return { status: response.status, data: data };
+          } catch (_) {
+            return { status: 0, data: null };
+          }
+        })
+      );
+
+      const successResult = results.find(result => {
+        if (result.status !== 'fulfilled' || !result.value) return false;
+        const parsed = parseProfileResult(result.value.data);
+        return parsed.success === true;
+      });
+
+      if (!successResult || successResult.status !== 'fulfilled') return;
+
+      const parsed = parseProfileResult(successResult.value.data);
+      if (!parsed.success || !parsed.payload || !parsed.payload.user) return;
+
+      const remoteUser = parsed.payload.user;
+      const recentTests = Array.isArray(parsed.payload.recentTests) ? parsed.payload.recentTests : [];
+
+      const users = JSON.parse(localStorage.getItem('users') || '{}');
+      const currentEmail = STATE.currentUser.email;
+      const local = users[currentEmail] || {};
+
+      const mappedRecentTests = recentTests.map(t => ({
+        wpm: Number(t.wpm || 0),
+        rawWpm: Number(t.raw_wpm || t.rawWpm || 0),
+        acc: Number(t.acc || 0),
+        consistency: 100,
+        chars: 0,
+        charsCorrect: 0,
+        charsIncorrect: 0,
+        time: Number(t.time_seconds || t.timeSeconds || 0),
+        type: 'words',
+        mode: t.mode || 'solo',
+        versusOutcome: null,
+        duration: 0,
+        wordCount: 0,
+        language: t.language || 'es',
+        difficulty: t.difficulty || '1k',
+        botDifficulty: null,
+        punctuation: 'off',
+        numbers: 'off',
+        tags: [],
+        date: t.created_at || new Date().toISOString()
+      }));
+
+      const nextEmail = String(remoteUser.email || local.email || currentEmail).toLowerCase();
+      const mergedUser = {
+        ...local,
+        username: remoteUser.username || local.username || STATE.currentUser.username,
+        email: nextEmail,
+        createdAt: remoteUser.createdAt || remoteUser.created_at || local.createdAt || STATE.currentUser.createdAt,
+        n8nUserId: remoteUser.id || local.n8nUserId || STATE.currentUser.n8nUserId,
+        totalTests: Number(remoteUser.totalTests || remoteUser.total_tests || local.totalTests || 0),
+        totalXp: Number(remoteUser.totalXp || remoteUser.total_xp || local.totalXp || 0),
+        bestWpm: Number(remoteUser.bestWpm || remoteUser.best_wpm || local.bestWpm || 0),
+        tests: mappedRecentTests.length ? mappedRecentTests : (Array.isArray(local.tests) ? local.tests : [])
+      };
+
+      if (nextEmail !== currentEmail) {
+        delete users[currentEmail];
+      }
+      users[nextEmail] = mergedUser;
+      localStorage.setItem('users', JSON.stringify(users));
+
+      STATE.currentUser = {
+        email: nextEmail,
+        username: mergedUser.username,
+        createdAt: mergedUser.createdAt,
+        n8nUserId: mergedUser.n8nUserId
+      };
+      localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
+      displayProfile();
+    } catch (_) {
+      // Si falla el sync remoto, mantenemos perfil local sin bloquear la app.
+    } finally {
+      profileSyncInFlight = false;
+    }
   }
 
   function displayProfile() {
