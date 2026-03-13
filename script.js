@@ -429,6 +429,7 @@
 
   let profileSyncInFlight = false;
   let warnedNullOrigin = false;
+  let profileSyncRetryAfter = 0;
 
   function isNullOriginRuntime() {
     return typeof window !== 'undefined'
@@ -595,6 +596,10 @@
     statTotalTime: $('statTotalTime'),
     editProfileBtn: $('editProfileBtn'),
     copyPublicLinkBtn: $('copyPublicLinkBtn'),
+    reloadProfileBtn: $('reloadProfileBtn'),
+    reloadProfileStatus: $('reloadProfileStatus'),
+    profileSyncMeta: $('profileSyncMeta'),
+    profileSyncDebug: $('profileSyncDebug'),
     pb15: $('pb15'),
     pb30: $('pb30'),
     pb50w: $('pb50w'),
@@ -1319,31 +1324,93 @@
     initCompetitiveUI();
   }
 
+  function setReloadProfileStatus(message, kind) {
+    if (!ELEMENTS.reloadProfileStatus) return;
+    ELEMENTS.reloadProfileStatus.textContent = message || '';
+    ELEMENTS.reloadProfileStatus.classList.remove('ok', 'err');
+    if (kind === 'ok') ELEMENTS.reloadProfileStatus.classList.add('ok');
+    if (kind === 'err') ELEMENTS.reloadProfileStatus.classList.add('err');
+  }
+
+  function setProfileSyncMeta(message) {
+    if (!ELEMENTS.profileSyncMeta) return;
+    ELEMENTS.profileSyncMeta.textContent = message || '';
+  }
+
+  function setProfileSyncDebug(value) {
+    if (!ELEMENTS.profileSyncDebug) return;
+    ELEMENTS.profileSyncDebug.textContent = value || '';
+  }
+
   async function syncRemoteProfile(options) {
     const opts = options || {};
-    if (!STATE.currentUser || profileSyncInFlight) return;
+    if (!STATE.currentUser) return { ok: false, reason: 'no-user' };
+    if (profileSyncInFlight) return { ok: false, reason: 'in-flight' };
+    if (Date.now() < profileSyncRetryAfter) return { ok: false, reason: 'retry-later' };
+
+    const buildProfileCandidateUrls = (baseUrl, userId) => {
+      const encoded = encodeURIComponent(userId);
+      const candidates = [
+        baseUrl + '/' + encoded + '?userId=' + encoded,
+        baseUrl + '/{userId}?userId=' + encoded,
+        baseUrl + '/' + encoded,
+        baseUrl + '?userId=' + encoded
+      ];
+      return [...new Set(candidates)];
+    };
+
+    const fetchProfileWithFallback = async (baseUrl, userId) => {
+      const candidates = buildProfileCandidateUrls(baseUrl, userId);
+      let last = { status: 0, data: null, url: candidates[0] };
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'x-user-id': String(userId) }
+          });
+          const data = await parseWebhookResponse(response);
+          const item = { status: response.status, data: data, url: url };
+          last = item;
+
+          const payloadText = JSON.stringify(data || '').toLowerCase();
+          const missingUserId = payloadText.includes('userid requerido');
+          if (response.ok && !missingUserId) return item;
+
+          // Si falla una variante (404, 500, validación), intentamos la siguiente.
+          continue;
+        } catch (_) {
+          last = { status: 0, data: null, url: url };
+        }
+      }
+      return last;
+    };
+
     if (isNullOriginRuntime()) {
       const userIdForPing = getCurrentRemoteUserId();
       if (opts.allowNullOriginPing && userIdForPing) {
+        setProfileSyncDebug('sync profile: file:// ping-only | userId=' + userIdForPing);
         await Promise.allSettled(
           PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => {
-            const url = baseUrl + '/' + encodeURIComponent(userIdForPing);
-            try {
-              await fetch(url, { method: 'GET', mode: 'no-cors' });
-            } catch (_) {
-              // Ignorado: en file:// solo queremos intentar disparar el webhook.
+            const candidates = buildProfileCandidateUrls(baseUrl, userIdForPing);
+            for (const url of candidates) {
+              try {
+                await fetch(url, { method: 'GET', mode: 'no-cors' });
+              } catch (_) {
+                // Ignorado: en file:// solo queremos intentar disparar el webhook.
+              }
             }
           })
         );
+        return { ok: true, reason: 'ping-only' };
       }
       if (!warnedNullOrigin) {
         console.warn('Profile sync remoto desactivado: origen null/file detectado. Usa http://localhost para pruebas con webhooks.');
         warnedNullOrigin = true;
       }
-      return;
+      return { ok: false, reason: 'null-origin' };
     }
     const userId = getCurrentRemoteUserId();
-    if (!userId) return;
+    if (!userId) return { ok: false, reason: 'no-user-id' };
 
     profileSyncInFlight = true;
 
@@ -1376,17 +1443,18 @@
 
     try {
       const results = await Promise.allSettled(
-        PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => {
-          const url = baseUrl + '/' + encodeURIComponent(userId);
-          try {
-            const response = await fetch(url, { method: 'GET' });
-            const data = await parseWebhookResponse(response);
-            return { status: response.status, data: data };
-          } catch (_) {
-            return { status: 0, data: null };
-          }
-        })
+        PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => fetchProfileWithFallback(baseUrl, userId))
       );
+
+      const debugLines = results.map(result => {
+        if (result.status !== 'fulfilled' || !result.value) return 'result: rejected';
+        const parsed = parseProfileResult(result.value.data);
+        return 'url=' + (result.value.url || '-') +
+          ' | http=' + Number(result.value.status || 0) +
+          ' | success=' + String(parsed.success) +
+          ' | statusCode=' + Number(parsed.statusCode || 0);
+      });
+      setProfileSyncDebug(debugLines.join('\n'));
 
       const successResult = results.find(result => {
         if (result.status !== 'fulfilled' || !result.value) return false;
@@ -1394,10 +1462,19 @@
         return parsed.success === true;
       });
 
-      if (!successResult || successResult.status !== 'fulfilled') return;
+      const all404 = results.length > 0 && results.every(result => {
+        return result.status === 'fulfilled' && result.value && Number(result.value.status || 0) === 404;
+      });
+      if (all404) {
+        profileSyncRetryAfter = Date.now() + 60000;
+        setProfileSyncDebug((ELEMENTS.profileSyncDebug ? ELEMENTS.profileSyncDebug.textContent + '\n' : '') + 'todos los endpoints devolvieron 404');
+        return { ok: false, reason: 'endpoint-404' };
+      }
+
+      if (!successResult || successResult.status !== 'fulfilled') return { ok: false, reason: 'no-success-response' };
 
       const parsed = parseProfileResult(successResult.value.data);
-      if (!parsed.success || !parsed.payload || !parsed.payload.user) return;
+      if (!parsed.success || !parsed.payload || !parsed.payload.user) return { ok: false, reason: 'bad-payload' };
 
       const remoteUser = parsed.payload.user;
       const recentTests = Array.isArray(parsed.payload.recentTests) ? parsed.payload.recentTests : [];
@@ -1455,9 +1532,16 @@
         n8nUserId: mergedUser.n8nUserId
       };
       localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
+      const syncedAt = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const usedUrl = successResult.value && successResult.value.url ? successResult.value.url : '';
+      setProfileSyncMeta('Actualizado desde n8n · ' + syncedAt + (usedUrl ? (' · ' + usedUrl) : ''));
+      setProfileSyncDebug((ELEMENTS.profileSyncDebug ? ELEMENTS.profileSyncDebug.textContent + '\n' : '') + 'payload user=' + JSON.stringify(parsed.payload.user));
       displayProfile();
+      return { ok: true, reason: 'synced', sourceUrl: usedUrl };
     } catch (_) {
       // Si falla el sync remoto, mantenemos perfil local sin bloquear la app.
+      setProfileSyncDebug('sync profile: exception no controlada');
+      return { ok: false, reason: 'exception' };
     } finally {
       profileSyncInFlight = false;
     }
@@ -1513,24 +1597,34 @@
   }
 
   function calculateStats(tests, userData) {
+    const remoteTotalTests = Number(userData && (userData.totalTests ?? userData.total_tests) || 0);
+    const remoteTotalXp = Number(userData && (userData.totalXp ?? userData.total_xp) || 0);
+    const remoteBestWpm = Number(userData && (userData.bestWpm ?? userData.best_wpm) || 0);
+
     if (!tests || tests.length === 0) {
+      const testsStartedNoLocal = userData && typeof userData.testsStarted === 'number'
+        ? Math.max(userData.testsStarted, remoteTotalTests)
+        : remoteTotalTests;
+      const completedPctNoLocal = testsStartedNoLocal > 0 ? (remoteTotalTests / testsStartedNoLocal) * 100 : 0;
+      const levelNoLocal = Math.floor(remoteTotalXp / 500) + 1;
+      const xpInLevelNoLocal = remoteTotalXp % 500;
       return {
-        totalTests: 0,
+        totalTests: remoteTotalTests,
         totalTime: 0,
-        testsStarted: userData && typeof userData.testsStarted === 'number' ? userData.testsStarted : 0,
-        completedPct: 0,
+        testsStarted: testsStartedNoLocal,
+        completedPct: completedPctNoLocal,
         restartsPerCompleted: 0,
-        totalXp: 0,
-        level: 1,
-        xpUntilNext: 500,
-        nextLevelPct: 0,
+        totalXp: remoteTotalXp,
+        level: levelNoLocal,
+        xpUntilNext: 500 - xpInLevelNoLocal,
+        nextLevelPct: (xpInLevelNoLocal / 500) * 100,
         versusDuelsPlayed: 0,
         versusBotPlayed: 0,
         versusOnlinePlayed: 0,
         versusWins: 0,
         versusWinRate: 0,
         versusOnlineWinRate: 0,
-        versusBestWpm: 0
+        versusBestWpm: remoteBestWpm
       };
     }
 
@@ -1542,28 +1636,31 @@
       totalXp += Math.max(10, Math.round((Number(test.wpm || 0) * 2) + Number(test.acc || 0)));
     });
 
+    const resolvedTotalTests = Math.max(tests.length, remoteTotalTests);
+    const resolvedTotalXp = Math.max(totalXp, remoteTotalXp);
+
     const testsStarted = userData && typeof userData.testsStarted === 'number'
-      ? Math.max(userData.testsStarted, tests.length)
-      : tests.length;
+      ? Math.max(userData.testsStarted, resolvedTotalTests)
+      : resolvedTotalTests;
     const restarts = userData && typeof userData.restarts === 'number' ? userData.restarts : 0;
-    const completedPct = testsStarted > 0 ? (tests.length / testsStarted) * 100 : 0;
-    const level = Math.floor(totalXp / 500) + 1;
-    const xpInLevel = totalXp % 500;
+    const completedPct = testsStarted > 0 ? (resolvedTotalTests / testsStarted) * 100 : 0;
+    const level = Math.floor(resolvedTotalXp / 500) + 1;
+    const xpInLevel = resolvedTotalXp % 500;
     const versusTests = tests.filter(t => String(t.mode || '').startsWith('versus-'));
     const versusBotTests = tests.filter(t => t.mode === 'versus-bot');
     const versusOnlineTests = tests.filter(t => t.mode === 'versus-online');
     const versusDuelsPlayed = versusTests.length;
     const versusWins = versusTests.filter(t => t.versusOutcome === 'win').length;
     const versusOnlineWins = versusOnlineTests.filter(t => t.versusOutcome === 'win').length;
-    const versusBestWpm = versusTests.length ? Math.max(...versusTests.map(t => Number(t.wpm || 0))) : 0;
+    const versusBestWpm = versusTests.length ? Math.max(...versusTests.map(t => Number(t.wpm || 0))) : remoteBestWpm;
 
     return {
-      totalTests: tests.length,
+      totalTests: resolvedTotalTests,
       totalTime: totalTime,
       testsStarted: testsStarted,
       completedPct: completedPct,
       restartsPerCompleted: tests.length > 0 ? restarts / tests.length : 0,
-      totalXp: totalXp,
+      totalXp: resolvedTotalXp,
       level: level,
       xpUntilNext: 500 - xpInLevel,
       nextLevelPct: (xpInLevel / 500) * 100,
@@ -2176,6 +2273,37 @@
     if (ELEMENTS.editProfileBtn) {
       ELEMENTS.editProfileBtn.addEventListener('click', () => {
         alert('Editor de perfil disponible en una próxima versión.');
+      });
+    }
+
+    if (ELEMENTS.reloadProfileBtn) {
+      ELEMENTS.reloadProfileBtn.addEventListener('click', async () => {
+        setReloadProfileStatus('Recargando datos...', '');
+        const result = await syncRemoteProfile({ allowNullOriginPing: true });
+        if (!result || !result.ok) {
+          const reason = result && result.reason ? result.reason : 'unknown';
+          if (reason === 'null-origin') {
+            setReloadProfileStatus('Bloqueado por CORS en file://. Publica o usa localhost.', 'err');
+          } else if (reason === 'endpoint-404') {
+            setReloadProfileStatus('Webhook profile no encontrado (404). Revisa ruta/activación en n8n.', 'err');
+          } else if (reason === 'retry-later') {
+            setReloadProfileStatus('Reintentando en unos segundos para evitar spam de errores.', '');
+          } else if (reason === 'in-flight') {
+            setReloadProfileStatus('Sincronización ya en curso.', '');
+          } else {
+            setReloadProfileStatus('No se pudo recargar datos remotos.', 'err');
+          }
+          return;
+        }
+
+        if (result.reason === 'ping-only') {
+          setReloadProfileStatus('Solicitud enviada (modo file://, sin lectura de respuesta).', '');
+        } else {
+          if (result.sourceUrl) {
+            setProfileSyncMeta('Flujo activado en ' + result.sourceUrl);
+          }
+          setReloadProfileStatus('Datos actualizados desde backend.', 'ok');
+        }
       });
     }
 

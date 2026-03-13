@@ -1198,6 +1198,42 @@ button {
   flex-wrap: wrap;
 }
 
+.reload-profile-status {
+  align-self: center;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  min-height: 1.1rem;
+}
+
+.reload-profile-status.ok {
+  color: var(--success-color);
+}
+
+.reload-profile-status.err {
+  color: var(--error-color);
+}
+
+.profile-sync-meta {
+  align-self: center;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.profile-sync-debug {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed color-mix(in srgb, var(--accent-secondary) 45%, transparent 55%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-secondary) 78%, black 22%);
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1rem;
+}
+
 .pb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
