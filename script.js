@@ -1319,9 +1319,23 @@
     initCompetitiveUI();
   }
 
-  async function syncRemoteProfile() {
+  async function syncRemoteProfile(options) {
+    const opts = options || {};
     if (!STATE.currentUser || profileSyncInFlight) return;
     if (isNullOriginRuntime()) {
+      const userIdForPing = getCurrentRemoteUserId();
+      if (opts.allowNullOriginPing && userIdForPing) {
+        await Promise.allSettled(
+          PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => {
+            const url = baseUrl + '/' + encodeURIComponent(userIdForPing);
+            try {
+              await fetch(url, { method: 'GET', mode: 'no-cors' });
+            } catch (_) {
+              // Ignorado: en file:// solo queremos intentar disparar el webhook.
+            }
+          })
+        );
+      }
       if (!warnedNullOrigin) {
         console.warn('Profile sync remoto desactivado: origen null/file detectado. Usa http://localhost para pruebas con webhooks.');
         warnedNullOrigin = true;
@@ -2126,6 +2140,7 @@
     if (ELEMENTS.activityRangeSelect) {
       ELEMENTS.activityRangeSelect.addEventListener('change', () => {
         displayProfile();
+        void syncRemoteProfile({ allowNullOriginPing: true });
       });
     }
 
@@ -4396,6 +4411,9 @@
     }
     if (sectionId === 'languages') {
       renderLanguagesSection();
+    }
+    if (sectionId === 'profile') {
+      void syncRemoteProfile({ allowNullOriginPing: true });
     }
   }
 
