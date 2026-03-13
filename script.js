@@ -417,6 +417,11 @@
     'https://n8n.srv1369665.hstgr.cloud/webhook/api/tests'
   ];
 
+  const LOGIN_WEBHOOK_URLS = [
+    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/login',
+    'https://n8n.srv1369665.hstgr.cloud/webhook/api/login'
+  ];
+
   const ARENAS = [
     { name: 'Bronce', min: 0, max: 500, benefits: ['Sin ventajas'] },
     { name: 'Plata', min: 501, max: 1500, benefits: ['+5% multiplicador XP diario'] },
@@ -780,11 +785,9 @@
       return false;
     }
 
+    const normalizedUsername = String(username).trim();
+    const normalizedEmail = String(email).trim().toLowerCase();
     const users = JSON.parse(localStorage.getItem('users') || '{}');
-    if (users[email]) {
-      alert('Este email ya está registrado');
-      return false;
-    }
 
     const createdAtIso = new Date().toISOString();
     const profileSeed = {
@@ -803,15 +806,16 @@
     };
 
     // Se envía a ambos webhooks para maximizar captura del evento de registro.
-    // Webhook TEST:
-    const registerWebhookTestUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register';
-    // Webhook PRODUCCIÓN:
-    const registerWebhookProdUrl = 'https://n8n.srv1369665.hstgr.cloud/webhook/api/register';
+    const registerWebhookUrls = [
+      'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register',
+      'https://n8n.srv1369665.hstgr.cloud/webhook/api/register'
+    ];
 
     const requestBody = {
-      username: username,
-      email: email,
+      username: normalizedUsername,
+      email: normalizedEmail,
       password: password,
+      appversion: profileSeed.app_version,
       created_at: profileSeed.created_at,
       tests_started: profileSeed.tests_started,
       restarts: profileSeed.restarts,
@@ -826,40 +830,157 @@
       app_version: profileSeed.app_version
     };
 
+    const normalizePayload = data => {
+      if (data === null || data === undefined) return null;
+
+      let current = data;
+      for (let i = 0; i < 3 && typeof current === 'string'; i++) {
+        try {
+          current = JSON.parse(current);
+        } catch (_) {
+          return { raw: current };
+        }
+      }
+
+      if (Array.isArray(current)) {
+        const first = current[0] || null;
+        if (typeof first === 'string') {
+          let parsed = first;
+          for (let i = 0; i < 3 && typeof parsed === 'string'; i++) {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch (_) {
+              return { raw: first };
+            }
+          }
+          return parsed;
+        }
+        return first;
+      }
+
+      return current;
+    };
+
+    const parseRegisterResult = data => {
+      const normalized = normalizePayload(data);
+      if (!normalized) {
+        return {
+          payload: null,
+          success: false,
+          statusCode: 0,
+          message: ''
+        };
+      }
+
+      const nested = normalizePayload(normalized.data);
+      const payload = nested && typeof nested === 'object' ? nested : normalized;
+      const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
+      const message = String(payload.error || payload.message || normalized.error || normalized.message || '');
+
+      return {
+        payload: payload,
+        success: payload.success === true,
+        statusCode: statusCode,
+        message: message
+      };
+    };
+
     let payload;
+    let payloadStatusCode = 0;
     try {
       const webhookResults = await Promise.allSettled(
-        [registerWebhookTestUrl, registerWebhookProdUrl].map(async url => {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
+        registerWebhookUrls.map(async url => {
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
 
-          if (!response.ok) return null;
-          const data = await response.json();
-          return data;
+            const data = await parseWebhookResponse(response);
+            return {
+              ok: response.ok,
+              status: response.status,
+              data: data
+            };
+          } catch (_) {
+            return {
+              ok: false,
+              status: 0,
+              data: null
+            };
+          }
         })
       );
 
-      const successResult = webhookResults.find(result => {
-        return result.status === 'fulfilled' && result.value && result.value.success === true;
+
+      const duplicateResult = webhookResults.find(result => {
+        if (result.status !== 'fulfilled' || !result.value) return false;
+        const parsed = parseRegisterResult(result.value.data);
+        const responseStatus = Number(result.value.status || 0);
+        const payloadText = JSON.stringify(parsed.payload || result.value.data || '').toLowerCase();
+        return responseStatus === 409
+          || parsed.statusCode === 409
+          || payloadText.includes('email ya registrado');
       });
 
-      payload = successResult && successResult.status === 'fulfilled' ? successResult.value : null;
+      if (duplicateResult && duplicateResult.status === 'fulfilled') {
+        const parsedDuplicate = parseRegisterResult(duplicateResult.value.data);
+        payload = parsedDuplicate.payload || { success: false, error: 'Email ya registrado', statusCode: 409 };
+        payloadStatusCode = 409;
+      } else {
+        const successResult = webhookResults.find(result => {
+          if (result.status !== 'fulfilled' || !result.value) return false;
+          const parsed = parseRegisterResult(result.value.data);
+          return parsed.success === true;
+        });
+
+        if (successResult && successResult.status === 'fulfilled') {
+          const parsedSuccess = parseRegisterResult(successResult.value.data);
+          payload = parsedSuccess.payload;
+          payloadStatusCode = Number(parsedSuccess.statusCode || successResult.value.status || 0);
+        } else {
+          const failedResult = webhookResults.find(result => {
+            return result.status === 'fulfilled' && result.value && result.value.data;
+          });
+          if (failedResult && failedResult.status === 'fulfilled') {
+            const parsedFailed = parseRegisterResult(failedResult.value.data);
+            payload = parsedFailed.payload;
+            payloadStatusCode = Number(parsedFailed.statusCode || failedResult.value.status || 0);
+          } else {
+            payload = null;
+            payloadStatusCode = 0;
+          }
+        }
+      }
     } catch (_) {
       payload = null;
     }
 
     if (!payload || payload.success !== true) {
-      alert('Error al registrar usuario');
+      const statusCode = Number(payloadStatusCode || payload && payload.statusCode || 0);
+      const backendMessage = payload && (payload.error || payload.message);
+      if (statusCode === 409) {
+        alert((backendMessage || 'Email ya registrado') + '. Inicia sesión con tu cuenta.');
+        STATE.currentUser = null;
+        localStorage.removeItem('currentUser');
+        if (ELEMENTS.registerPanel && ELEMENTS.loginPanel) {
+          ELEMENTS.registerPanel.style.display = 'none';
+          ELEMENTS.loginPanel.style.display = 'block';
+        }
+        if ($('loginEmail')) $('loginEmail').value = normalizedEmail;
+        if ($('loginPassword')) $('loginPassword').focus();
+        updateAuthUI();
+      } else {
+        alert(backendMessage || 'Error al registrar usuario');
+      }
       return false;
     }
 
     const createdAt = payload.createdAt || payload.created_at || profileSeed.created_at;
     const newUser = {
-      username,
-      email,
+      username: normalizedUsername,
+      email: normalizedEmail,
       password,
       createdAt: createdAt,
       n8nUserId: payload.userId || payload.id || null,
@@ -877,7 +998,7 @@
       tests: []
     };
 
-    users[email] = newUser;
+    users[normalizedEmail] = newUser;
     localStorage.setItem('users', JSON.stringify(users));
 
     STATE.currentUser = {
@@ -894,11 +1015,11 @@
     return true;
   }
 
-  function loginUser(email, password) {
+  function loginUserLocal(email, password, showAlert) {
     const users = JSON.parse(localStorage.getItem('users') || '{}');
     const user = users[email];
     if (!user || user.password !== password) {
-      alert('Email o contraseña incorrectos');
+      if (showAlert) alert('Email o contraseña incorrectos');
       return false;
     }
     STATE.currentUser = {
@@ -910,6 +1031,121 @@
     localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
     updateAuthUI();
     return true;
+  }
+
+  async function loginUser(email, password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedPassword = String(password || '');
+    if (!normalizedEmail || !normalizedPassword) {
+      alert('Email y contraseña son obligatorios');
+      return false;
+    }
+
+    const normalizePayload = data => {
+      if (data === null || data === undefined) return null;
+      let current = data;
+      for (let i = 0; i < 3 && typeof current === 'string'; i++) {
+        try {
+          current = JSON.parse(current);
+        } catch (_) {
+          return { raw: current };
+        }
+      }
+      if (Array.isArray(current)) return current[0] || null;
+      return current;
+    };
+
+    const parseLoginResult = data => {
+      const normalized = normalizePayload(data);
+      if (!normalized) return { payload: null, success: false, statusCode: 0, message: '' };
+      const nested = normalizePayload(normalized.data);
+      const payload = nested && typeof nested === 'object' ? nested : normalized;
+      const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
+      const success = payload.success === true || (normalized.success === true && payload.success !== false);
+      const message = String(payload.error || payload.message || normalized.error || normalized.message || '');
+      return { payload, success, statusCode, message };
+    };
+
+    let parsedLogin = null;
+    try {
+      const results = await Promise.allSettled(
+        LOGIN_WEBHOOK_URLS.map(async url => {
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: normalizedEmail, password: normalizedPassword })
+            });
+            const parsed = await parseWebhookResponse(response);
+            return { status: response.status, data: parsed };
+          } catch (_) {
+            return { status: 0, data: null };
+          }
+        })
+      );
+
+      const successResult = results.find(result => {
+        if (result.status !== 'fulfilled' || !result.value) return false;
+        const parsed = parseLoginResult(result.value.data);
+        return parsed.success === true;
+      });
+
+      if (successResult && successResult.status === 'fulfilled') {
+        parsedLogin = parseLoginResult(successResult.value.data);
+      } else {
+        const failedResult = results.find(result => result.status === 'fulfilled' && result.value && result.value.data);
+        parsedLogin = failedResult && failedResult.status === 'fulfilled'
+          ? parseLoginResult(failedResult.value.data)
+          : null;
+      }
+    } catch (_) {
+      parsedLogin = null;
+    }
+
+    if (parsedLogin && parsedLogin.success === true && parsedLogin.payload) {
+      const users = JSON.parse(localStorage.getItem('users') || '{}');
+      const previous = users[normalizedEmail] || {};
+      const payload = parsedLogin.payload;
+      const localUser = {
+        username: payload.username || previous.username || normalizedEmail.split('@')[0],
+        email: payload.email || previous.email || normalizedEmail,
+        password: previous.password || normalizedPassword,
+        createdAt: payload.createdAt || payload.created_at || previous.createdAt || new Date().toISOString(),
+        n8nUserId: payload.userId || payload.id || previous.n8nUserId || null,
+        testsStarted: previous.testsStarted || 0,
+        restarts: previous.restarts || 0,
+        totalXp: previous.totalXp || 0,
+        arenaTrophies: previous.arenaTrophies || 0,
+        arenaName: previous.arenaName || 'Bronce',
+        leaguePoints: previous.leaguePoints || 0,
+        leagueLabel: previous.leagueLabel || 'Bronce I',
+        avgWpm: previous.avgWpm || 0,
+        bestWpm: previous.bestWpm || 0,
+        totalTests: previous.totalTests || 0,
+        appVersion: previous.appVersion || '1.0',
+        tests: Array.isArray(previous.tests) ? previous.tests : []
+      };
+
+      users[normalizedEmail] = localUser;
+      localStorage.setItem('users', JSON.stringify(users));
+
+      STATE.currentUser = {
+        email: localUser.email,
+        username: localUser.username,
+        createdAt: localUser.createdAt,
+        n8nUserId: localUser.n8nUserId
+      };
+      localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
+      updateAuthUI();
+      return true;
+    }
+
+    // Fallback local para no romper acceso durante pruebas de backend.
+    if (loginUserLocal(normalizedEmail, normalizedPassword, false)) return true;
+
+    const loginError = parsedLogin && parsedLogin.message ? parsedLogin.message : 'Email o contraseña incorrectos';
+    alert(loginError);
+    return false;
   }
 
   function hashText(input) {
@@ -1023,7 +1259,8 @@
   }
 
   function loginUserByEmail(email, password) {
-    loginUser(email, password);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    loginUserLocal(normalizedEmail, password, false);
   }
 
   function logoutUser() {
@@ -1683,12 +1920,12 @@
       }
     });
 
-    ELEMENTS.loginForm.addEventListener('submit', e => {
+    ELEMENTS.loginForm.addEventListener('submit', async e => {
       e.preventDefault();
       const email = $('loginEmail').value.trim();
       const password = $('loginPassword').value;
       
-      if (loginUser(email, password)) {
+      if (await loginUser(email, password)) {
         $('loginEmail').value = '';
         $('loginPassword').value = '';
       }
