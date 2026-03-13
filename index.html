@@ -73,73 +73,142 @@
     <!-- Sección: Test -->
     <section id="test" class="section active">
       <div class="test-container">
-        <!-- Panel De Modos -->
-        <div class="modes-panel">
-          <!-- Fila 1: Tipo de contenido -->
-          <div class="mode-row">
-            <div class="mode-toggle">
-              <button class="toggle-btn active" id="typeWords" data-type="words">Palabras</button>
-              <button class="toggle-btn" id="typeTexts" data-type="texts">Textos</button>
-            </div>
+        <!-- Panel De Modos — Rediseño visual con cards + chips -->
+        <div class="modes-panel config-panel">
 
-            <div class="mode-group">
-              <label for="testLanguage">Idioma:</label>
-              <select id="testLanguage">
-                <option value="es">Español</option>
-                <option value="en">English</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="pt">Português</option>
-              </select>
-            </div>
+          <!-- Fila 1: Modo + Duración -->
+          <div class="config-row">
 
-            <div class="mode-group" id="diffGroup">
-              <label for="difficultySelect">Dificultad:</label>
-              <select id="difficultySelect">
-                <option value="1k">1k palabras</option>
-                <option value="5k">5k palabras</option>
-                <option value="20k">20k palabras</option>
-              </select>
-            </div>
-
-            <div class="mode-group mode-group-categories" id="textCategoryGroup" style="display:none;">
-              <label>Categoría:</label>
-              <div class="category-chips" id="textCategoryChips" role="radiogroup" aria-label="Seleccionar categoría de texto">
-                <button type="button" class="category-chip active" data-category="literature" role="radio" aria-checked="true">Literatura</button>
-                <button type="button" class="category-chip" data-category="science" role="radio" aria-checked="false">Ciencia</button>
-                <button type="button" class="category-chip" data-category="philosophy" role="radio" aria-checked="false">Filosofía</button>
-                <button type="button" class="category-chip" data-category="tech" role="radio" aria-checked="false">Tecnología</button>
-                <button type="button" class="category-chip" data-category="quotes" role="radio" aria-checked="false">Citas célebres</button>
+            <!-- Card: Modo de juego -->
+            <div class="config-card config-card--mode">
+              <p class="config-card__title">Modo de juego</p>
+              <div class="config-segmented" role="group" aria-label="Tipo de contenido">
+                <button class="toggle-btn config-seg-btn active" id="typeWords" data-type="words">Palabras</button>
+                <button class="toggle-btn config-seg-btn" id="typeTexts" data-type="texts">Textos</button>
               </div>
             </div>
 
-            <div class="mode-group" id="timeGroup">
-              <label for="timeSelect" id="timeLabel">Duración:</label>
-              <select id="timeSelect">
+            <!-- Card: Duración (ocultable por JS cuando está en modo Textos sin tiempo) -->
+            <div class="config-card config-card--duration" id="timeGroup">
+              <p class="config-card__title" id="timeLabel">Duración</p>
+              <!-- Select oculto visualmente; el JS escucha su evento change -->
+              <select id="timeSelect" class="config-hidden-select" aria-hidden="true" tabindex="-1">
                 <option value="15">15s</option>
                 <option value="30">30s</option>
                 <option value="60" selected>60s</option>
                 <option value="120">120s</option>
               </select>
+              <!-- Chips visibles -->
+              <div class="config-chips" role="radiogroup" aria-label="Duración del test">
+                <button type="button" class="config-chip" data-ctrl="timeSelect" data-val="15">15 s</button>
+                <button type="button" class="config-chip" data-ctrl="timeSelect" data-val="30">30 s</button>
+                <button type="button" class="config-chip config-chip--active" data-ctrl="timeSelect" data-val="60">60 s</button>
+                <button type="button" class="config-chip" data-ctrl="timeSelect" data-val="120">120 s</button>
+              </div>
+              <!-- Input personalizado -->
+              <div class="config-custom-wrap">
+                <input type="number" class="config-custom-input" id="timeCustomInput"
+                  placeholder="Otro…" min="5" max="600" aria-label="Duración personalizada en segundos">
+                <span class="config-custom-unit">s</span>
+              </div>
+            </div>
+
+          </div><!-- /.config-row -->
+
+          <!-- Fila 2: Contenido + Opciones avanzadas -->
+          <div class="config-row">
+
+            <!-- Card: Contenido -->
+            <div class="config-card config-card--content">
+              <p class="config-card__title">Contenido</p>
+
+              <!-- Idioma -->
+              <div class="config-field">
+                <span class="config-label">Idioma</span>
+                <select id="testLanguage" class="config-select">
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="en">🇺🇸 English</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="de">🇩🇪 Deutsch</option>
+                  <option value="pt">🇧🇷 Português</option>
+                </select>
+              </div>
+
+              <!-- Banco de palabras (oculto en modo Textos por JS) -->
+              <div class="config-field" id="diffGroup">
+                <span class="config-label">Banco de palabras</span>
+                <select id="difficultySelect" class="config-hidden-select" aria-hidden="true" tabindex="-1">
+                  <option value="1k">1k palabras</option>
+                  <option value="5k">5k palabras</option>
+                  <option value="20k">20k palabras</option>
+                </select>
+                <div class="config-chips" role="radiogroup" aria-label="Banco de palabras">
+                  <button type="button" class="config-chip config-chip--active" data-ctrl="difficultySelect" data-val="1k">🗒 1 k</button>
+                  <button type="button" class="config-chip" data-ctrl="difficultySelect" data-val="5k">📚 5 k</button>
+                  <button type="button" class="config-chip" data-ctrl="difficultySelect" data-val="20k">🧠 20 k</button>
+                </div>
+              </div>
+
+              <!-- Categorías de texto (visible solo en modo Textos, JS controla display) -->
+              <div class="config-field" id="textCategoryGroup" style="display:none;">
+                <span class="config-label">Categoría de texto</span>
+                <div class="category-chips" id="textCategoryChips" role="radiogroup" aria-label="Seleccionar categoría de texto">
+                  <button type="button" class="category-chip active" data-category="literature" role="radio" aria-checked="true">📖 Literatura</button>
+                  <button type="button" class="category-chip" data-category="science" role="radio" aria-checked="false">🔬 Ciencia</button>
+                  <button type="button" class="category-chip" data-category="philosophy" role="radio" aria-checked="false">💭 Filosofía</button>
+                  <button type="button" class="category-chip" data-category="tech" role="radio" aria-checked="false">💻 Tecnología</button>
+                  <button type="button" class="category-chip" data-category="quotes" role="radio" aria-checked="false">💬 Citas</button>
+                </div>
+              </div>
+
+            </div><!-- /.config-card--content -->
+
+            <!-- Card: Opciones avanzadas — accordion (JS controla display del contenedor completo) -->
+            <div class="config-card config-card--advanced" id="wordOptions">
+              <button type="button" class="config-accordion-btn" aria-expanded="false" aria-controls="advancedBody">
+                <span class="config-accordion-label">⚙️ Opciones avanzadas</span>
+                <span class="config-accordion-arrow" aria-hidden="true">›</span>
+              </button>
+              <div class="config-accordion-body" id="advancedBody" hidden>
+                <label class="config-switch">
+                  <input type="checkbox" id="optUppercase" class="config-switch__input">
+                  <span class="config-switch__track"></span>
+                  <div class="config-switch__text">
+                    <span class="config-switch__label">Mayúsculas</span>
+                    <span class="config-switch__desc">Incluye letras en mayúscula</span>
+                  </div>
+                </label>
+                <label class="config-switch">
+                  <input type="checkbox" id="optPunctuation" class="config-switch__input">
+                  <span class="config-switch__track"></span>
+                  <div class="config-switch__text">
+                    <span class="config-switch__label">Puntuación</span>
+                    <span class="config-switch__desc">Añade comas, puntos y signos</span>
+                  </div>
+                </label>
+                <label class="config-switch">
+                  <input type="checkbox" id="optNumbers" class="config-switch__input">
+                  <span class="config-switch__track"></span>
+                  <div class="config-switch__text">
+                    <span class="config-switch__label">Números</span>
+                    <span class="config-switch__desc">Mezcla dígitos en el texto</span>
+                  </div>
+                </label>
+              </div><!-- /#advancedBody -->
+            </div><!-- /.config-card--advanced -->
+
+          </div><!-- /.config-row -->
+
+          <!-- Barra de resumen + CTA -->
+          <div class="config-summary">
+            <span class="config-summary__text" id="configSummaryText">Palabras · 60 s · Banco 1 k</span>
+            <div class="config-summary__actions">
+              <button type="button" class="btn config-reset-btn" id="configResetBtn">↺ Resetear</button>
+              <button type="button" class="btn btn-primary config-cta" id="configStartBtn">▶ Empezar test</button>
             </div>
           </div>
 
-          <!-- Fila 2: Opciones de palabras -->
-          <div class="options-row" id="wordOptions">
-            <label class="opt-toggle">
-              <input type="checkbox" id="optUppercase" />
-              <span>Mayúsculas</span>
-            </label>
-            <label class="opt-toggle">
-              <input type="checkbox" id="optPunctuation" />
-              <span>Puntuación</span>
-            </label>
-            <label class="opt-toggle">
-              <input type="checkbox" id="optNumbers" />
-              <span>Números</span>
-            </label>
-          </div>
-        </div>
+        </div><!-- /.modes-panel.config-panel -->
 
         <!-- Stats Superiores -->
         <div class="test-stats">
@@ -168,6 +237,11 @@
             id="testInput" 
             class="test-input" 
             placeholder="Escribe aquí..."
+            inputmode="text"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
             aria-label="Campo de entrada del test de mecanografía"
           />
         </div>
@@ -1146,6 +1220,154 @@
       </div>
     </div>
   </footer>
+
+  <!-- Config-panel chip sync — no modifica script.js -->
+  <script>
+    (function () {      /* ---- CHIPS → SELECT SYNC ---- */
+      function syncChips(ctrl, val) {
+        document.querySelectorAll('.config-chip[data-ctrl="' + ctrl + '"]').forEach(function (btn) {
+          btn.classList.toggle('config-chip--active', btn.dataset.val === val);
+        });
+        updateSummary();
+      }
+
+      document.querySelectorAll('.config-chip[data-ctrl]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var selId = this.dataset.ctrl;
+          var selEl = document.getElementById(selId);
+          if (!selEl) return;
+          selEl.value = this.dataset.val;
+          selEl.dispatchEvent(new Event('change', { bubbles: true }));
+          syncChips(selId, this.dataset.val);
+        });
+      });
+
+      /* ---- CUSTOM TIME INPUT ---- */
+      var timeCustom = document.getElementById('timeCustomInput');
+      if (timeCustom) {
+        timeCustom.addEventListener('change', function () {
+          var v = parseInt(this.value, 10);
+          if (!v || v < 5) return;
+          var sel = document.getElementById('timeSelect');
+          if (!sel) return;
+          // Añade opción temporal si no existe
+          var exists = Array.from(sel.options).some(function (o) { return o.value === String(v); });
+          if (!exists) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + 's';
+            sel.appendChild(opt);
+          }
+          sel.value = v;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          // Deselecciona chips fijos
+          document.querySelectorAll('.config-chip[data-ctrl="timeSelect"]').forEach(function (b) {
+            b.classList.remove('config-chip--active');
+          });
+          updateSummary();
+        });
+      }
+
+      /* ---- ACCORDION ---- */
+      var accBtn = document.querySelector('.config-accordion-btn');
+      var accBody = document.getElementById('advancedBody');
+      if (accBtn && accBody) {
+        accBtn.addEventListener('click', function () {
+          var open = this.getAttribute('aria-expanded') === 'true';
+          this.setAttribute('aria-expanded', !open);
+          accBody.hidden = open;
+          var arrow = this.querySelector('.config-accordion-arrow');
+          if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
+        });
+      }
+
+      /* ---- SUMMARY TEXT ---- */
+      function updateSummary() {
+        var summaryEl = document.getElementById('configSummaryText');
+        if (!summaryEl) return;
+        var modeWords = document.getElementById('typeWords');
+        var mode = (modeWords && modeWords.classList.contains('active')) ? 'Palabras' : 'Textos';
+        var timeSel = document.getElementById('timeSelect');
+        var timeVal = timeSel ? timeSel.value + ' s' : '—';
+        var diffSel = document.getElementById('difficultySelect');
+        var diffVal = diffSel ? diffSel.value : '—';
+        var lang = document.getElementById('testLanguage');
+        var langVal = lang ? lang.options[lang.selectedIndex].text.replace(/^.{1,4}\s/, '') : '—';
+        summaryEl.textContent = mode + ' · ' + timeVal + ' · Banco ' + diffVal + ' · ' + langVal;
+      }
+
+      // Actualizar summary cuando cambien los selects nativos
+      ['timeSelect', 'difficultySelect', 'testLanguage'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', updateSummary);
+      });
+      // Actualizar cuando JS cambia modo palabras/textos
+      ['typeWords', 'typeTexts'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', updateSummary);
+      });
+      updateSummary();
+
+      /* ---- RESET ---- */
+      var resetBtn = document.getElementById('configResetBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          // Tiempo → 60
+          var timeSel = document.getElementById('timeSelect');
+          if (timeSel) { timeSel.value = '60'; timeSel.dispatchEvent(new Event('change', { bubbles: true })); }
+          syncChips('timeSelect', '60');
+          // Banco → 1k
+          var diffSel = document.getElementById('difficultySelect');
+          if (diffSel) { diffSel.value = '1k'; diffSel.dispatchEvent(new Event('change', { bubbles: true })); }
+          syncChips('difficultySelect', '1k');
+          // Checkboxes
+          ['optUppercase', 'optPunctuation', 'optNumbers'].forEach(function (id) {
+            var cb = document.getElementById(id);
+            if (cb && cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+          });
+          // Limpiar input custom
+          if (timeCustom) timeCustom.value = '';
+          updateSummary();
+        });
+      }
+
+      /* ---- CTA EMPEZAR ---- */
+      var startBtn = document.getElementById('configStartBtn');
+      if (startBtn) {
+        startBtn.addEventListener('click', function () {
+          var restartBtn = document.getElementById('restartBtn');
+          if (restartBtn) restartBtn.click();
+          var input = document.getElementById('testInput');
+          if (input) input.focus();
+        });
+      }
+    })();
+  </script>
+
+  <!-- Touch support para teclado virtual en móvil -->
+  <script>
+    (function () {
+      /* Asegura que el teclado virtual aparezca al tocar el área de test.
+         El JS de script.js ya maneja el click; esto añade touchstart. */
+      var testArea = document.querySelector('.test-area');
+      var testInput = document.getElementById('testInput');
+      if (testArea && testInput) {
+        testArea.addEventListener('touchstart', function (e) {
+          /* No prevenimos default para no bloquear el scroll */
+          testInput.focus();
+        }, { passive: true });
+      }
+
+      /* Igual para el área de texto del versus */
+      var versusArea = document.getElementById('versusUserText');
+      var versusInput = document.getElementById('versusInput');
+      if (versusArea && versusInput) {
+        versusArea.addEventListener('touchstart', function () {
+          versusInput.focus();
+        }, { passive: true });
+      }
+    })();
+  </script>
 
   <script src="script.js"></script>
 </body>
