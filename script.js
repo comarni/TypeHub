@@ -427,9 +427,15 @@
     'https://n8n.srv1369665.hstgr.cloud/webhook/api/profile'
   ];
 
+  const LEADERBOARD_WEBHOOK_URLS = [
+    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/leaderboard',
+    'https://n8n.srv1369665.hstgr.cloud/webhook/api/leaderboard'
+  ];
+
   let profileSyncInFlight = false;
   let warnedNullOrigin = false;
   let profileSyncRetryAfter = 0;
+  let leaderboardSyncInFlight = false;
 
   function isNullOriginRuntime() {
     return typeof window !== 'undefined'
@@ -647,6 +653,11 @@
     exportCsvBtn: $('exportCsvBtn'),
     loadMoreTestsBtn: $('loadMoreTestsBtn'),
     testsHistory: $('testsHistory'),
+    leaderboardTableBody: $('leaderboardTableBody'),
+    reloadLeaderboardBtn: $('reloadLeaderboardBtn'),
+    reloadLeaderboardStatus: $('reloadLeaderboardStatus'),
+    leaderboardSyncMeta: $('leaderboardSyncMeta'),
+    leaderboardSyncDebug: $('leaderboardSyncDebug'),
     progressChartContainer: $('progressChartContainer'),
     progressChart: $('progressChart'),
     progressTabs: document.querySelectorAll('.progress-tab'),
@@ -1340,6 +1351,180 @@
   function setProfileSyncDebug(value) {
     if (!ELEMENTS.profileSyncDebug) return;
     ELEMENTS.profileSyncDebug.textContent = value || '';
+  }
+
+  function setReloadLeaderboardStatus(message, kind) {
+    if (!ELEMENTS.reloadLeaderboardStatus) return;
+    ELEMENTS.reloadLeaderboardStatus.textContent = message || '';
+    ELEMENTS.reloadLeaderboardStatus.classList.remove('ok', 'err');
+    if (kind === 'ok') ELEMENTS.reloadLeaderboardStatus.classList.add('ok');
+    if (kind === 'err') ELEMENTS.reloadLeaderboardStatus.classList.add('err');
+  }
+
+  function setLeaderboardSyncMeta(message) {
+    if (!ELEMENTS.leaderboardSyncMeta) return;
+    ELEMENTS.leaderboardSyncMeta.textContent = message || '';
+  }
+
+  function setLeaderboardSyncDebug(value) {
+    if (!ELEMENTS.leaderboardSyncDebug) return;
+    ELEMENTS.leaderboardSyncDebug.textContent = value || '';
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function formatLeaderboardDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function renderLeaderboardTable(entries) {
+    if (!ELEMENTS.leaderboardTableBody) return;
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      ELEMENTS.leaderboardTableBody.innerHTML = '<tr><td colspan="6">No hay datos de leaderboard disponibles.</td></tr>';
+      return;
+    }
+
+    ELEMENTS.leaderboardTableBody.innerHTML = entries.map((entry, idx) => {
+      const username = escapeHtml(entry.username || 'anon');
+      const bestWpm = Number(entry.best_wpm ?? entry.bestWpm ?? 0);
+      const totalXp = Number(entry.total_xp ?? entry.totalXp ?? 0);
+      const totalTests = Number(entry.total_tests ?? entry.totalTests ?? 0);
+      const createdAt = entry.created_at || entry.createdAt || '';
+
+      return '<tr>' +
+        '<td>' + (idx + 1) + '</td>' +
+        '<td>' + username + '</td>' +
+        '<td>' + (Number.isFinite(bestWpm) ? Math.round(bestWpm) : 0) + '</td>' +
+        '<td>' + (Number.isFinite(totalXp) ? totalXp.toLocaleString('es-ES') : '0') + '</td>' +
+        '<td>' + (Number.isFinite(totalTests) ? totalTests.toLocaleString('es-ES') : '0') + '</td>' +
+        '<td>' + escapeHtml(formatLeaderboardDate(createdAt)) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function normalizeLeaderboardPayload(data) {
+    if (data === null || data === undefined) return null;
+    let current = data;
+    for (let i = 0; i < 3 && typeof current === 'string'; i++) {
+      try {
+        current = JSON.parse(current);
+      } catch (_) {
+        return { raw: current };
+      }
+    }
+    return current;
+  }
+
+  function parseLeaderboardResult(data) {
+    let normalized = normalizeLeaderboardPayload(data);
+    if (!normalized) return { success: false, statusCode: 0, entries: [], payload: null };
+
+    if (Array.isArray(normalized)) {
+      const looksLikeRows = normalized.length > 0 && normalized.every(item => item && typeof item === 'object' && ('username' in item || 'best_wpm' in item || 'bestWpm' in item));
+      if (looksLikeRows) {
+        return { success: true, statusCode: 200, entries: normalized, payload: { leaderboard: normalized } };
+      }
+      normalized = normalized[0] || null;
+      if (!normalized) return { success: false, statusCode: 0, entries: [], payload: null };
+    }
+
+    const nested = normalizeLeaderboardPayload(normalized.data);
+    const payload = nested && typeof nested === 'object' ? nested : normalized;
+
+    let entries = payload.leaderboard;
+    if (!Array.isArray(entries) && Array.isArray(payload.rows)) entries = payload.rows;
+    if (!Array.isArray(entries) && Array.isArray(normalized.leaderboard)) entries = normalized.leaderboard;
+    if (!Array.isArray(entries)) entries = [];
+
+    const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
+    const explicitSuccess = payload.success === true || normalized.success === true;
+    const success = explicitSuccess || ((statusCode >= 200 && statusCode < 300) && Array.isArray(entries));
+
+    return { success, statusCode, entries, payload };
+  }
+
+  async function syncRemoteLeaderboard(options) {
+    const opts = options || {};
+    const limit = Number(opts.limit || 20);
+
+    if (leaderboardSyncInFlight) return { ok: false, reason: 'in-flight' };
+    leaderboardSyncInFlight = true;
+
+    try {
+      if (isNullOriginRuntime()) {
+        if (opts.allowNullOriginPing) {
+          setLeaderboardSyncDebug('sync leaderboard: file:// ping-only | limit=' + limit);
+          await Promise.allSettled(
+            LEADERBOARD_WEBHOOK_URLS.map(async baseUrl => {
+              const url = baseUrl + '?limit=' + encodeURIComponent(String(limit));
+              try {
+                await fetch(url, { method: 'GET', mode: 'no-cors' });
+              } catch (_) {
+                // Ignorado: en file:// no podremos leer respuesta
+              }
+            })
+          );
+          return { ok: true, reason: 'ping-only' };
+        }
+        return { ok: false, reason: 'null-origin' };
+      }
+
+      const results = await Promise.allSettled(
+        LEADERBOARD_WEBHOOK_URLS.map(async baseUrl => {
+          const url = baseUrl + '?limit=' + encodeURIComponent(String(limit));
+          const response = await fetch(url, { method: 'GET' });
+          const data = await parseWebhookResponse(response);
+          return { ok: response.ok, status: response.status, data: data, url: url };
+        })
+      );
+
+      const debugLines = results.map(result => {
+        if (result.status !== 'fulfilled' || !result.value) return 'result: rejected';
+        const parsed = parseLeaderboardResult(result.value.data);
+        return 'url=' + (result.value.url || '-') +
+          ' | http=' + Number(result.value.status || 0) +
+          ' | success=' + String(parsed.success) +
+          ' | entries=' + Number(parsed.entries.length || 0) +
+          ' | statusCode=' + Number(parsed.statusCode || 0);
+      });
+      setLeaderboardSyncDebug(debugLines.join('\n'));
+
+      const successResult = results.find(result => {
+        if (result.status !== 'fulfilled' || !result.value) return false;
+        const parsed = parseLeaderboardResult(result.value.data);
+        if (parsed.success && Array.isArray(parsed.entries)) return true;
+        return result.value.ok;
+      });
+
+      if (!successResult || successResult.status !== 'fulfilled') {
+        return { ok: false, reason: 'no-success-response' };
+      }
+
+      const parsed = parseLeaderboardResult(successResult.value.data);
+      const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+      renderLeaderboardTable(entries);
+
+      const syncedAt = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const usedUrl = successResult.value && successResult.value.url ? successResult.value.url : '';
+      setLeaderboardSyncMeta('Actualizado desde n8n · ' + syncedAt + (usedUrl ? (' · ' + usedUrl) : ''));
+      return { ok: true, reason: 'synced', entries: entries, sourceUrl: usedUrl };
+    } catch (_) {
+      setLeaderboardSyncDebug('sync leaderboard: exception no controlada');
+      return { ok: false, reason: 'exception' };
+    } finally {
+      leaderboardSyncInFlight = false;
+    }
   }
 
   async function syncRemoteProfile(options) {
@@ -2303,6 +2488,30 @@
             setProfileSyncMeta('Flujo activado en ' + result.sourceUrl);
           }
           setReloadProfileStatus('Datos actualizados desde backend.', 'ok');
+        }
+      });
+    }
+
+    if (ELEMENTS.reloadLeaderboardBtn) {
+      ELEMENTS.reloadLeaderboardBtn.addEventListener('click', async () => {
+        setReloadLeaderboardStatus('Recargando ranking...', '');
+        const result = await syncRemoteLeaderboard({ allowNullOriginPing: true, limit: 20 });
+        if (!result || !result.ok) {
+          const reason = result && result.reason ? result.reason : 'unknown';
+          if (reason === 'null-origin') {
+            setReloadLeaderboardStatus('Bloqueado por CORS en file://. Publica o usa localhost.', 'err');
+          } else if (reason === 'in-flight') {
+            setReloadLeaderboardStatus('Sincronización ya en curso.', '');
+          } else {
+            setReloadLeaderboardStatus('No se pudo recargar leaderboard remoto.', 'err');
+          }
+          return;
+        }
+
+        if (result.reason === 'ping-only') {
+          setReloadLeaderboardStatus('Solicitud enviada (modo file://, sin lectura de respuesta).', '');
+        } else {
+          setReloadLeaderboardStatus('Leaderboard actualizado desde backend.', 'ok');
         }
       });
     }
@@ -4542,6 +4751,9 @@
     }
     if (sectionId === 'profile') {
       void syncRemoteProfile({ allowNullOriginPing: true });
+    }
+    if (sectionId === 'leaderboard') {
+      void syncRemoteLeaderboard({ allowNullOriginPing: true, limit: 20 });
     }
   }
 

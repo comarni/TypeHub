@@ -824,52 +824,29 @@
     <section id="leaderboard" class="section">
       <div class="content-container">
         <h2>🏆 Clasificación Global</h2>
-        <p>Los mejores velocistas de esta semana:</p>
+        <div class="leaderboard-header-row">
+          <p>Ranking global por mejor WPM (n8n + PostgreSQL)</p>
+          <div class="leaderboard-actions">
+            <button class="btn btn-secondary" id="reloadLeaderboardBtn">Recargar ranking</button>
+            <span id="reloadLeaderboardStatus" class="reload-leaderboard-status" aria-live="polite"></span>
+          </div>
+        </div>
+        <span id="leaderboardSyncMeta" class="leaderboard-sync-meta" aria-live="polite"></span>
+        <pre id="leaderboardSyncDebug" class="leaderboard-sync-debug" aria-live="polite"></pre>
         <table class="leaderboard-table">
           <thead>
             <tr>
               <th>#</th>
               <th>Usuario</th>
               <th>WPM</th>
-              <th>Precisión</th>
-              <th>Fecha</th>
+              <th>XP</th>
+              <th>Tests</th>
+              <th>Alta</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="leaderboardTableBody">
             <tr>
-              <td>1</td>
-              <td>NinjuType</td>
-              <td>185</td>
-              <td>98.5%</td>
-              <td>Hace 2 horas</td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td>SpeedDemon</td>
-              <td>172</td>
-              <td>97.2%</td>
-              <td>Hace 5 horas</td>
-            </tr>
-            <tr>
-              <td>3</td>
-              <td>TypeMaster</td>
-              <td>165</td>
-              <td>99.1%</td>
-              <td>Hace 1 día</td>
-            </tr>
-            <tr>
-              <td>4</td>
-              <td>KeyBoard21</td>
-              <td>158</td>
-              <td>96.8%</td>
-              <td>Hace 3 días</td>
-            </tr>
-            <tr>
-              <td>5</td>
-              <td>FastFingers</td>
-              <td>152</td>
-              <td>98.3%</td>
-              <td>Hace 5 días</td>
+              <td colspan="6">Pulsa "Recargar ranking" para cargar datos remotos.</td>
             </tr>
           </tbody>
         </table>
