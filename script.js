@@ -427,10 +427,10 @@
     'https://n8n.srv1369665.hstgr.cloud/webhook/api/profile'
   ];
 
-  const LEADERBOARD_WEBHOOK_URLS = [
-    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/leaderboard',
-    'https://n8n.srv1369665.hstgr.cloud/webhook/api/leaderboard'
-  ];
+  const LEADERBOARD_WEBHOOK_ENDPOINTS = {
+    test: 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/leaderboard',
+    prod: 'https://n8n.srv1369665.hstgr.cloud/webhook/api/leaderboard'
+  };
 
   let profileSyncInFlight = false;
   let warnedNullOrigin = false;
@@ -441,6 +441,26 @@
     return typeof window !== 'undefined'
       && !!window.location
       && (window.location.protocol === 'file:' || window.location.origin === 'null');
+  }
+
+  function getLeaderboardWebhookUrls() {
+    const search = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : null;
+    const queryEnv = String(search && (search.get('leaderboardEnv') || search.get('n8nEnv')) || '').trim().toLowerCase();
+    const storageEnv = String(localStorage.getItem('n8nLeaderboardEnv') || '').trim().toLowerCase();
+    const forcedEnv = queryEnv || storageEnv;
+
+    if (forcedEnv === 'test') return [LEADERBOARD_WEBHOOK_ENDPOINTS.test];
+    if (forcedEnv === 'prod') return [LEADERBOARD_WEBHOOK_ENDPOINTS.prod];
+    if (forcedEnv === 'both') return [LEADERBOARD_WEBHOOK_ENDPOINTS.prod, LEADERBOARD_WEBHOOK_ENDPOINTS.test];
+
+    const isGithubHost = typeof window !== 'undefined'
+      && !!window.location
+      && /github\.io$/i.test(String(window.location.hostname || ''));
+
+    if (isGithubHost) {
+      return [LEADERBOARD_WEBHOOK_ENDPOINTS.prod, LEADERBOARD_WEBHOOK_ENDPOINTS.test];
+    }
+    return [LEADERBOARD_WEBHOOK_ENDPOINTS.test, LEADERBOARD_WEBHOOK_ENDPOINTS.prod];
   }
 
   const ARENAS = [
@@ -1444,7 +1464,10 @@
 
     let entries = payload.leaderboard;
     if (!Array.isArray(entries) && Array.isArray(payload.rows)) entries = payload.rows;
+    if (!Array.isArray(entries) && Array.isArray(payload.data)) entries = payload.data;
     if (!Array.isArray(entries) && Array.isArray(normalized.leaderboard)) entries = normalized.leaderboard;
+    if (!Array.isArray(entries) && Array.isArray(normalized.rows)) entries = normalized.rows;
+    if (!Array.isArray(entries) && Array.isArray(normalized.data)) entries = normalized.data;
     if (!Array.isArray(entries)) entries = [];
 
     const statusCode = Number(payload.statusCode || normalized.statusCode || 0);
@@ -1457,6 +1480,7 @@
   async function syncRemoteLeaderboard(options) {
     const opts = options || {};
     const limit = Number(opts.limit || 20);
+    const selectedBaseUrls = getLeaderboardWebhookUrls();
 
     if (leaderboardSyncInFlight) return { ok: false, reason: 'in-flight' };
     leaderboardSyncInFlight = true;
@@ -1464,9 +1488,9 @@
     try {
       if (isNullOriginRuntime()) {
         if (opts.allowNullOriginPing) {
-          setLeaderboardSyncDebug('sync leaderboard: file:// ping-only | limit=' + limit);
+          setLeaderboardSyncDebug('sync leaderboard: file:// ping-only | limit=' + limit + ' | targets=' + selectedBaseUrls.join(', '));
           await Promise.allSettled(
-            LEADERBOARD_WEBHOOK_URLS.map(async baseUrl => {
+            selectedBaseUrls.map(async baseUrl => {
               const url = baseUrl + '?limit=' + encodeURIComponent(String(limit));
               try {
                 await fetch(url, { method: 'GET', mode: 'no-cors' });
@@ -1481,7 +1505,7 @@
       }
 
       const results = await Promise.allSettled(
-        LEADERBOARD_WEBHOOK_URLS.map(async baseUrl => {
+        selectedBaseUrls.map(async baseUrl => {
           const url = baseUrl + '?limit=' + encodeURIComponent(String(limit));
           const response = await fetch(url, { method: 'GET' });
           const data = await parseWebhookResponse(response);
@@ -1508,6 +1532,15 @@
       });
 
       if (!successResult || successResult.status !== 'fulfilled') {
+        const fulfilled = results.filter(result => result.status === 'fulfilled' && !!result.value);
+        const all404 = fulfilled.length > 0 && fulfilled.every(result => Number(result.value.status || 0) === 404);
+        if (all404) {
+          return { ok: false, reason: 'endpoint-404' };
+        }
+        const allRejected = results.length > 0 && results.every(result => result.status === 'rejected');
+        if (allRejected) {
+          return { ok: false, reason: 'network-or-cors' };
+        }
         return { ok: false, reason: 'no-success-response' };
       }
 
@@ -2500,6 +2533,10 @@
           const reason = result && result.reason ? result.reason : 'unknown';
           if (reason === 'null-origin') {
             setReloadLeaderboardStatus('Bloqueado por CORS en file://. Publica o usa localhost.', 'err');
+          } else if (reason === 'endpoint-404') {
+            setReloadLeaderboardStatus('Webhook leaderboard no activo (404). Activa el workflow en n8n.', 'err');
+          } else if (reason === 'network-or-cors') {
+            setReloadLeaderboardStatus('Petición bloqueada por red/CORS. Revisa Access-Control-Allow-Origin.', 'err');
           } else if (reason === 'in-flight') {
             setReloadLeaderboardStatus('Sincronización ya en curso.', '');
           } else {
