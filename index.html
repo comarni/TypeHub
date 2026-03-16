@@ -341,6 +341,15 @@
           />
         </div>
 
+        <!-- Integración Teclado 3D TypeHub — contenedor de la escena -->
+        <div
+          id="keyboard3d-container"
+          class="keyboard3d-container"
+          data-style="default"
+          aria-hidden="true"
+          style="display:none;"
+        ></div>
+
         <!-- Reiniciar rápido (atajos visibles en el footer) -->
         <div class="restart-btn-wrap">
           <button class="restart-btn-mini" id="restartBtn">↺ reiniciar</button>
@@ -1060,6 +1069,22 @@
           </label>
         </div>
 
+        <!-- Integración Teclado 3D TypeHub — toggle en ajustes -->
+        <div class="settings-group" id="keyboard3dSettingsGroup">
+          <h3>Teclado 3D</h3>
+          <label class="checkbox keyboard3d-toggle-label">
+            <input type="checkbox" id="keyboard3dToggle" />
+            Mostrar teclado 3D durante el test
+          </label>
+          <p class="settings-hint">Visualiza las teclas que pulsas en tiempo real sobre una representación 3D del teclado.</p>
+          <div class="keyboard3d-style-row" id="keyboard3dStyleRow" style="display:none;">
+            <span class="settings-hint">Estilo:</span>
+            <button class="config-chip keyboard3d-style-btn keyboard3d-style-btn--active" data-kbstyle="default">Default</button>
+            <button class="config-chip keyboard3d-style-btn" data-kbstyle="floating">Floating</button>
+            <button class="config-chip keyboard3d-style-btn" data-kbstyle="compact">Compact</button>
+          </div>
+        </div>
+
         <div class="settings-group">
           <h3>Datos</h3>
           <button class="btn btn-secondary" id="clearDataBtn">Limpiar datos locales</button>
@@ -1479,6 +1504,112 @@
   <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
   <script src="script.js"></script>
+
+  <!-- Integración Teclado 3D TypeHub — Three.js + módulo keyboard3d -->
+  <!-- Three.js se carga solo cuando el usuario activa el toggle (lazy) -->
+  <script id="keyboard3d-module-script">
+    (function () {
+      /* ── Lógica del toggle de Teclado 3D ───────────────────────────
+         Se ejecuta tras script.js para que el DOM esté listo.
+         No interfiere con STATE ni con ninguna función del test.
+      ──────────────────────────────────────────────────────────────── */
+
+      var toggle        = document.getElementById('keyboard3dToggle');
+      var container     = document.getElementById('keyboard3d-container');
+      var styleRow      = document.getElementById('keyboard3dStyleRow');
+      var styleBtns     = document.querySelectorAll('.keyboard3d-style-btn');
+      var THREE_LOADED  = false;
+      var THREE_LOADING = false;
+
+      if (!toggle || !container) return; // Guard: sección no encontrada
+
+      /* Restaurar preferencia guardada */
+      var saved = localStorage.getItem('keyboard3dEnabled');
+      if (saved === 'true') {
+        toggle.checked = true;
+        enableKeyboard3D();
+      }
+
+      /* ── Carga diferida de Three.js ──────────────────────────── */
+      function loadThreeJS(callback) {
+        if (THREE_LOADED) { callback(); return; }
+        if (THREE_LOADING) { /* esperar */ setTimeout(function () { loadThreeJS(callback); }, 100); return; }
+        THREE_LOADING = true;
+
+        var script = document.createElement('script');
+        // Three.js r165 — CDN jsDelivr (UMD build, sin módulos ES)
+        script.src = 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js';
+        script.onload = function () {
+          THREE_LOADED  = true;
+          THREE_LOADING = false;
+          /* Cargar el módulo del teclado 3D */
+          var kbScript = document.createElement('script');
+          kbScript.src = 'keyboard3d.js';
+          kbScript.onload = function () { callback(); };
+          kbScript.onerror = function () { console.error('[Keyboard3D] No se pudo cargar keyboard3d.js'); };
+          document.body.appendChild(kbScript);
+        };
+        script.onerror = function () {
+          THREE_LOADING = false;
+          console.error('[Keyboard3D] No se pudo cargar Three.js desde CDN.');
+          alert('Teclado 3D no disponible: no se pudo cargar Three.js. Comprueba tu conexión a internet.');
+          toggle.checked = false;
+        };
+        document.body.appendChild(script);
+      }
+
+      /* ── Activar ─────────────────────────────────────────────── */
+      function enableKeyboard3D() {
+        container.style.display = 'block';
+        if (styleRow) styleRow.style.display = 'flex';
+
+        loadThreeJS(function () {
+          if (window.Keyboard3D && window.Keyboard3D.init3DKeyboard) {
+            window.Keyboard3D.init3DKeyboard();
+          }
+        });
+
+        localStorage.setItem('keyboard3dEnabled', 'true');
+      }
+
+      /* ── Desactivar ──────────────────────────────────────────── */
+      function disableKeyboard3D() {
+        if (window.Keyboard3D && window.Keyboard3D.destroy3DKeyboard) {
+          window.Keyboard3D.destroy3DKeyboard();
+        }
+        container.style.display = 'none';
+        if (styleRow) styleRow.style.display = 'none';
+        localStorage.setItem('keyboard3dEnabled', 'false');
+      }
+
+      /* ── Toggle listener ─────────────────────────────────────── */
+      toggle.addEventListener('change', function () {
+        if (toggle.checked) {
+          enableKeyboard3D();
+        } else {
+          disableKeyboard3D();
+        }
+      });
+
+      /* ── Cambio de estilo (data-kbstyle) ─────────────────────── */
+      styleBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var style = btn.dataset.kbstyle;
+          styleBtns.forEach(function (b) { b.classList.remove('keyboard3d-style-btn--active'); });
+          btn.classList.add('keyboard3d-style-btn--active');
+          if (container) container.setAttribute('data-style', style);
+          localStorage.setItem('keyboard3dStyle', style);
+        });
+      });
+
+      /* Restaurar estilo guardado */
+      var savedStyle = localStorage.getItem('keyboard3dStyle') || 'default';
+      if (container) container.setAttribute('data-style', savedStyle);
+      styleBtns.forEach(function (btn) {
+        btn.classList.toggle('keyboard3d-style-btn--active', btn.dataset.kbstyle === savedStyle);
+      });
+    })();
+  </script>
 
   <!-- GDPR Cookie Banner -->
   <div id="cookieBanner" class="cookie-banner" style="display:none;" role="region" aria-label="Aviso de cookies">

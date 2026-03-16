@@ -1876,3 +1876,113 @@ body.focus-mode .test-stats .stat-value { font-size: 1.1rem; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
 .w-full { width: 100%; }
+
+/* ================================================================
+   21. TECLADO 3D — Integración TypeHub
+   ================================================================ */
+
+/* ── Contenedor principal ─────────────────────────────────────── */
+.keyboard3d-container {
+  width: 100%;
+  /* Altura base para el canvas de Three.js */
+  height: 260px;
+  margin-top: 1.25rem;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.22),
+    0 1px 4px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  transition:
+    opacity     var(--dur-slow) var(--ease),
+    transform   var(--dur-slow) var(--ease),
+    border-color var(--dur-mid) var(--ease);
+  /* Entrada animada */
+  animation: kb3dFadeIn var(--dur-slow) var(--ease) both;
+}
+
+@keyframes kb3dFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Canvas generado por Three.js — ocupa todo el contenedor */
+.keyboard3d-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Variantes de estilo (data-style) ────────────────────────── */
+
+/* Floating: bordes redondeados más pronunciados + sombra elevada */
+.keyboard3d-container[data-style="floating"] {
+  border-radius: 20px;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.35),
+    0 2px 8px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  transform: perspective(900px) rotateX(2deg);
+}
+
+/* Compact: altura reducida, sin borde lateral tan pronunciado */
+.keyboard3d-container[data-style="compact"] {
+  height: 180px;
+  border-radius: var(--r-s);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+}
+
+/* ── Ajuste de color de borde por tema ───────────────────────── */
+body.theme-nord    .keyboard3d-container { border-color: rgba(94,129,172,0.35); }
+body.theme-dracula .keyboard3d-container { border-color: rgba(189,147,249,0.25); }
+body.theme-monokai .keyboard3d-container { border-color: rgba(230,219,116,0.20); }
+body.theme-light   .keyboard3d-container {
+  background: var(--bg-2);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+}
+
+/* ── Glow sutil de acento en el borde (hover) ────────────────── */
+.keyboard3d-container:hover {
+  border-color: var(--border-focus);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.25),
+    0 0 0 1px var(--accent-dim);
+}
+
+/* ── Fila de selección de estilo en ajustes ─────────────────── */
+.keyboard3d-style-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+/* Reutiliza .config-chip pero marcamos el activo con acento */
+.keyboard3d-style-btn--active {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+
+/* ── Hint de ajustes ─────────────────────────────────────────── */
+.settings-hint {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  margin-top: 0.3rem;
+  line-height: 1.5;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .keyboard3d-container           { height: 200px; }
+  .keyboard3d-container[data-style="compact"] { height: 140px; }
+  .keyboard3d-container[data-style="floating"] { transform: none; border-radius: 14px; }
+}
+
+@media (max-width: 480px) {
+  .keyboard3d-container           { height: 150px; margin-top: 1rem; }
+  .keyboard3d-container[data-style="compact"] { height: 110px; }
+}
