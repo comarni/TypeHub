@@ -747,13 +747,28 @@
     <section id="languages" class="section">
       <div class="languages-container">
         <div class="content-container languages-header-card">
-          <h2>Aprender Idiomas (beta)</h2>
-          <p>Practica mecanografía mientras aprendes frases básicas en Español, Inglés y Francés. Esta es una versión demo, tu feedback es clave.</p>
+          <h2>Aprendizaje de Idiomas Inmersivo (MVP)</h2>
+          <p>
+            Esta propuesta se diferencia de Duolingo por la experiencia: personajes, escenas y conversaciones con intención real.
+            Mantenemos la mecánica simple al inicio, pero con una UI/UX más narrativa y cinematográfica.
+          </p>
+        </div>
+
+        <div class="content-container languages-path-card">
+          <h3>Diferencias Objetivas vs Duolingo</h3>
+          <ul class="languages-wire-list">
+            <li><strong>Foco:</strong> menos hábito diario por XP y más inmersión por escenas útiles.</li>
+            <li><strong>Interacción:</strong> menos test de selección y más diálogos guiados con personajes.</li>
+            <li><strong>Gamificación:</strong> progreso por capítulos y decisiones, no solo streak/ligas.</li>
+            <li><strong>Progresión:</strong> rutas temáticas (viaje, citas, trabajo remoto) conectadas entre sí.</li>
+            <li><strong>UI/UX:</strong> interfaz moderna, clara y visualmente expresiva con pocas acciones por pantalla.</li>
+            <li><strong>Objetivo lingüístico:</strong> hacerse entender en situaciones reales antes que traducción perfecta.</li>
+          </ul>
         </div>
 
         <div class="languages-top-grid">
           <div class="content-container languages-config-card">
-            <h3>Tu Ruta</h3>
+            <h3>Navegación MVP</h3>
             <div class="languages-select-row">
               <div class="mode-group">
                 <label for="langBaseSelect">Idioma base</label>
@@ -772,34 +787,66 @@
                 </select>
               </div>
             </div>
+            <ol class="languages-wire-list">
+              <li>Home: propuesta de valor + CTA "Empieza tu camino".</li>
+              <li>Roadmap: timeline de escenas con progreso y desbloqueos.</li>
+              <li>Escena: diálogo tipo chat + viñeta + respuesta guiada.</li>
+              <li>Suscripción: plan gratis limitado + premium narrativo.</li>
+            </ol>
             <p class="languages-active-path" id="languagesActivePath">Estás aprendiendo Inglés desde Español.</p>
-            <p class="languages-motivation" id="languagesMotivation">Hoy has hecho progreso real. Sigue así.</p>
+            <p class="languages-motivation" id="languagesMotivation">Tu historia avanza escena a escena. Hoy toca aeropuerto.</p>
           </div>
 
           <div class="content-container languages-profile-card">
-            <h3>Perfil de Idioma</h3>
+            <h3>Perfil Narrativo</h3>
             <div class="languages-profile-grid">
               <div class="languages-profile-item"><span>Objetivo</span><strong id="langProfileTarget">Inglés</strong></div>
-              <div class="languages-profile-item"><span>Nivel</span><strong>Básico</strong></div>
+              <div class="languages-profile-item"><span>Nivel</span><strong>Starter Conversacional</strong></div>
               <div class="languages-profile-item"><span>⭐ XP</span><strong id="langProfileXp">0 XP</strong></div>
               <div class="languages-profile-item"><span>❤️ Corazones</span><strong id="langProfileHearts">3/3</strong></div>
               <div class="languages-profile-item"><span>💎 Gemas</span><strong id="langProfileGems">0</strong></div>
             </div>
             <div class="versus-progress-track"><div class="versus-progress-fill" id="langProfileXpProgress"></div></div>
-            <p class="languages-sub-note">En el futuro podrás usar gemas para desbloquear contenido avanzado o saltar lecciones.</p>
+            <p class="languages-sub-note">
+              Voces sugeridas del MVP: Emma (femenina joven, británica, lenta y clara),
+              Alex (masculina neutra, ritmo medio, tono cálido),
+              Noah (masculina urbana, ritmo dinámico para escenas sociales).
+            </p>
           </div>
         </div>
 
         <div class="content-container languages-path-card">
-          <h3>Camino de aprendizaje</h3>
+          <h3>Wireframes en Texto (UI/UX)</h3>
+          <ul class="languages-wire-list">
+            <li><strong>Home:</strong> hero minimalista, 2 colores principales, CTA único y recordatorio suave de progreso.</li>
+            <li><strong>Roadmap:</strong> timeline vertical con cards grandes por escena, ilustración, objetivo y estado.</li>
+            <li><strong>Escena/Diálogo:</strong> parte superior con lugar/personajes, centro tipo chat, parte inferior con 2-4 respuestas grandes.</li>
+            <li><strong>Suscripción:</strong> comparación simple de planes, beneficios narrativos y prueba corta de una escena premium.</li>
+          </ul>
+          <p class="languages-sub-note">
+            Accesibilidad aplicada: contraste alto, tipografía legible (mínimo 16px), foco visible en botones y máximo 3-4 opciones por paso.
+          </p>
+        </div>
+
+        <div class="content-container languages-path-card">
+          <h3>Camino de 7 Escenas: "Sobrevive en Londres en 7 días"</h3>
+          <ol class="languages-wire-list">
+            <li><strong>Día 1 - Aeropuerto:</strong> saludar, pedir ayuda y entender direcciones básicas.</li>
+            <li><strong>Día 2 - Transporte:</strong> comprar ticket y preguntar por la línea correcta.</li>
+            <li><strong>Día 3 - Check-in Airbnb:</strong> confirmar reserva y resolver una incidencia simple.</li>
+            <li><strong>Día 4 - Cafetería:</strong> pedir comida, tamaños y preferencias.</li>
+            <li><strong>Día 5 - Coworking:</strong> presentarte y pedir conexión o sala.</li>
+            <li><strong>Día 6 - Social/Cita:</strong> invitar, proponer plan y responder con naturalidad.</li>
+            <li><strong>Día 7 - Emergencia ligera:</strong> describir problema y pedir asistencia.</li>
+          </ol>
           <div class="languages-path" id="languagesPath"></div>
         </div>
 
         <div class="content-container languages-lesson-card" id="languageLessonPanel" style="display:none;">
           <div class="languages-lesson-head">
             <div>
-              <h3 id="languageLessonTitle">Lección</h3>
-              <p id="languageLessonDescription">Descripción breve de la lección.</p>
+              <h3 id="languageLessonTitle">Escena 1: Llegada al Aeropuerto</h3>
+              <p id="languageLessonDescription">Formato chat + viñeta: practica respuestas cortas para hacerte entender.</p>
             </div>
             <button class="btn btn-secondary" id="languageCloseLessonBtn">Cerrar</button>
           </div>
@@ -813,27 +860,30 @@
           <div class="versus-progress-track"><div class="versus-progress-fill" id="languageLessonProgressBar"></div></div>
 
           <div class="languages-prompt-wrap">
-            <p class="languages-prompt-base">Frase en idioma base:</p>
-            <div class="languages-prompt-text" id="languagePromptBase">Hola, ¿cómo estás?</div>
-            <p class="languages-prompt-hint" id="languagePromptHint">Escribe la traducción en inglés.</p>
+            <p class="languages-prompt-base">Copy de primera escena:</p>
+            <div class="languages-prompt-text" id="languagePromptBase">Oficial: "Good evening. Purpose of your visit?"</div>
+            <p class="languages-prompt-hint" id="languagePromptHint">Objetivo: responder intención comunicativa de forma simple y clara.</p>
           </div>
 
           <div class="test-area languages-typing-area">
-            <div class="text-display" id="languageTargetDisplay">your translation here</div>
-            <input type="text" id="languageTypingInput" class="languages-typing-input" placeholder="Escribe aquí y pulsa Enter" />
+            <div class="text-display" id="languageTargetDisplay">Opciones: A) "I am here for tourism." B) "Tourist, 7 days." C) "I come work online for one week."</div>
+            <input type="text" id="languageTypingInput" class="languages-typing-input" placeholder="Escribe o selecciona una respuesta breve" />
           </div>
 
           <div class="languages-lesson-actions">
             <button class="btn btn-primary" id="languageCheckBtn">Comprobar frase</button>
-            <p id="languageLessonFeedback" class="languages-feedback">Buen trabajo, vamos a por la siguiente.</p>
+            <p id="languageLessonFeedback" class="languages-feedback">Feedback ejemplo: "Casi. Te faltó intención clara. Prueba una frase más directa."</p>
           </div>
         </div>
 
         <div class="content-container languages-donation-card">
-          <h3>Apoya TypeHub Languages</h3>
-          <p>TypeHub Languages está en beta. Si te gusta y quieres que sigamos construyendo más lecciones, puedes apoyar el proyecto.</p>
-          <a class="btn btn-primary" id="languageDonateBtn" href="#">Apoyar con una donación</a>
-          <p class="languages-donate-note">Cambia el enlace de donación en el atributo href de este botón cuando tengas tu URL final (Ko-fi/Stripe).</p>
+          <h3>Pantalla de Suscripción (MVP)</h3>
+          <p>
+            Modelo recomendado: 1 camino gratis para validar activación + caminos premium con más escenas, voces y rutas ramificadas.
+            La propuesta de valor de pago es la experiencia narrativa y la práctica contextual, no solo más ejercicios.
+          </p>
+          <a class="btn btn-primary" id="languageDonateBtn" href="#">Ver planes de suscripción</a>
+          <p class="languages-donate-note">Mantén pricing simple: mensual/anual, prueba breve y CTA único por pantalla.</p>
         </div>
       </div>
     </section>
