@@ -93,7 +93,7 @@
       <button class="nav-btn" data-section="competitive">arena</button>
       <button class="nav-btn" data-section="leaderboard">ranking</button>
       <button class="nav-btn" data-section="about">info</button>
-      <button class="nav-btn" data-section="settings" aria-label="Ajustes">⚙</button>
+      <button class="nav-btn" data-section="settings" aria-label="Ajustes">ajustes</button>
       <!-- Auth: shown when logged out -->
       <button class="nav-btn" data-section="login" id="navLoginBtn" aria-label="Cuenta">👤</button>
       <!-- Auth: shown when logged in -->
@@ -341,10 +341,8 @@
           />
         </div>
 
-        <!-- Atajos de Teclado -->
-        <div class="shortcuts">
-          <p class="footer-key"><kbd>Tab</kbd><span class="footer-key-sep">+</span><kbd>Enter</kbd> reiniciar</p>
-          <p class="footer-key"><kbd>Esc</kbd> parar</p>
+        <!-- Reiniciar rápido (atajos visibles en el footer) -->
+        <div class="restart-btn-wrap">
           <button class="restart-btn-mini" id="restartBtn">↺ reiniciar</button>
         </div>
 
@@ -938,8 +936,14 @@
             </tr>
           </thead>
           <tbody id="leaderboardTableBody">
-            <tr>
-              <td colspan="8" style="text-align:center;color:var(--text-sub);padding:1.5rem;">Pulsa "Recargar" para cargar datos remotos.</td>
+            <tr class="leaderboard-empty-row">
+              <td colspan="8">
+                <div class="leaderboard-empty">
+                  <span class="leaderboard-empty-icon">🏆</span>
+                  <p class="leaderboard-empty-title">Sin datos aún</p>
+                  <p class="leaderboard-empty-sub">Pulsa <strong>Recargar ranking</strong> para obtener la clasificación global.</p>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -1269,7 +1273,6 @@
         <a href="#" target="_blank" rel="noopener">discord</a>
         <a href="#" target="_blank" rel="noopener">twitter</a>
         <a href="#">contacto</a>
-        <span style="font-size:0.7rem;color:var(--text-sub);">v1.0.0</span>
       </nav>
     </div>
   </footer>

@@ -600,7 +600,7 @@
     textViewport: $('textViewport'),
     textTrack: $('textTrack'),
     testHint: $('testHint'),
-    shortcutsBar: document.querySelector('.shortcuts'),
+    shortcutsBar: document.querySelector('.restart-btn-wrap'),
     // legacy (kept for result rendering)
     textDisplay: $('textDisplay'),
     typingCaret: $('typingCaret'),
@@ -3291,12 +3291,32 @@
       });
     }
 
+    // Arena sidebar: click the toggle button OR the trophy to expand/collapse
+    if (ELEMENTS.arenaSidebar) {
+      ELEMENTS.arenaSidebar.addEventListener('click', (e) => {
+        // Only toggle if sidebar is collapsed or user clicked the toggle btn/trophy
+        const sidebar = ELEMENTS.arenaSidebar;
+        const isOpen = sidebar.classList.contains('is-open');
+        const clickedToggle = e.target.closest('.arena-toggle') || e.target.closest('.arena-trophy');
+        if (!isOpen || clickedToggle) {
+          sidebar.classList.toggle('is-open');
+          if (ELEMENTS.arenaBenefitsToggle) {
+            ELEMENTS.arenaBenefitsToggle.textContent = sidebar.classList.contains('is-open') ? '✕' : '▾';
+          }
+        }
+      });
+      // Close when clicking outside
+      document.addEventListener('click', (e) => {
+        if (ELEMENTS.arenaSidebar && !ELEMENTS.arenaSidebar.contains(e.target)) {
+          ELEMENTS.arenaSidebar.classList.remove('is-open');
+          if (ELEMENTS.arenaBenefitsToggle) ELEMENTS.arenaBenefitsToggle.textContent = '▾';
+        }
+      }, { capture: false });
+    }
+
     if (ELEMENTS.arenaBenefitsToggle) {
-      ELEMENTS.arenaBenefitsToggle.addEventListener('click', () => {
-        const list = ELEMENTS.arenaBenefitsList;
-        if (!list) return;
-        const isOpen = list.classList.toggle('open');
-        ELEMENTS.arenaBenefitsToggle.textContent = isOpen ? '▴' : '▾';
+      ELEMENTS.arenaBenefitsToggle.addEventListener('click', (e) => {
+        e.stopPropagation(); // handled by sidebar click above
       });
     }
 
@@ -4862,8 +4882,16 @@
     const userMeanWpm = getUserAverageWpm();
     const botProfile = BOT_PROFILES[STATE.versus.botDifficulty] || BOT_PROFILES.medium;
     const botMeanWpm = Math.round((botProfile.minWpm + botProfile.maxWpm) / 2);
-    if (ELEMENTS.versusUserRank) ELEMENTS.versusUserRank.textContent = rankByWpm(userMeanWpm);
-    if (ELEMENTS.versusBotRank) ELEMENTS.versusBotRank.textContent = rankByWpm(botMeanWpm);
+    if (ELEMENTS.versusUserRank) {
+      const ur = rankByWpm(userMeanWpm);
+      ELEMENTS.versusUserRank.textContent = ur;
+      ELEMENTS.versusUserRank.dataset.rank = ur;
+    }
+    if (ELEMENTS.versusBotRank) {
+      const br = rankByWpm(botMeanWpm);
+      ELEMENTS.versusBotRank.textContent = br;
+      ELEMENTS.versusBotRank.dataset.rank = br;
+    }
     updateVersusEliteBadge(buildCompetitiveSnapshot().isTop100);
   }
 
@@ -5534,9 +5562,13 @@
   }
 
   function handleNavigation(e) {
-    const sectionId = e.target.dataset.section;
+    // Use closest() so clicking a child span inside the button still finds the button
+    const btn = e.target.closest('[data-section]');
+    if (!btn) return;
+    const sectionId = btn.dataset.section;
+    if (!sectionId) return;
     ELEMENTS.navButtons.forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
+    btn.classList.add('active');
     ELEMENTS.sections.forEach(s => s.classList.remove('active'));
     document.getElementById(sectionId)?.classList.add('active');
     if (sectionId !== 'test') pauseTest();
