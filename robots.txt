@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Block n8n webhook endpoints from indexing
+Disallow: /webhook/
+Disallow: /webhook-test/
+
+Sitemap: https://typehub.app/sitemap.xml

@@ -303,7 +303,13 @@
     incorrectChars: 0,
     correctedChars: 0,
     wpmHistory: [],
+    rawWpmHistory: [],
+    errorsPerSecond: [],
+    chartMode: 'scale',
     wpmSnapshotInterval: null,
+    _textLines: null,
+    _activeLineIdx: 0,
+    _prevIncorrectCharsSnapshot: 0,
     testText: '',
     charStates: [],
     prevInputLength: 0,
@@ -412,25 +418,69 @@
 
   const BOT_MOODS = ['calentando', 'concentrado', 'en racha', 'tilt'];
 
-  const TEST_WEBHOOK_URLS = [
-    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/tests',
-    'https://n8n.srv1369665.hstgr.cloud/webhook/api/tests'
-  ];
-
-  const LOGIN_WEBHOOK_URLS = [
-    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/login',
-    'https://n8n.srv1369665.hstgr.cloud/webhook/api/login'
-  ];
-
-  const PROFILE_WEBHOOK_BASE_URLS = [
-    'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/profile',
-    'https://n8n.srv1369665.hstgr.cloud/webhook/api/profile'
-  ];
-
-  const LEADERBOARD_WEBHOOK_ENDPOINTS = {
-    test: 'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/leaderboard',
-    prod: 'https://n8n.srv1369665.hstgr.cloud/webhook/api/leaderboard'
+  // ========== CONFIGURACIÓN CENTRALIZADA ==========
+  // Cambiar IS_PROD a false para usar endpoints de prueba (/webhook-test)
+  const CONFIG = {
+    IS_PROD: true,
+    API_HOST: 'https://n8n.srv1369665.hstgr.cloud',
+    get API_BASE() { return this.API_HOST + (this.IS_PROD ? '/webhook' : '/webhook-test'); },
+    ENDPOINTS: {
+      tests:                '/api/tests',
+      login:                '/api/login',
+      register:             '/api/register',
+      profile:              '/api/profile',
+      leaderboard:          '/api/leaderboard',
+      leaderboardComp:      '/api/leaderboard/competitive',
+      languageProgress:     '/api/language-progress',
+      languageProfile:      '/api/language-profile'
+    },
+    url(endpoint) { return this.API_BASE + this.ENDPOINTS[endpoint]; },
+    // Para compatibilidad con código que espera arrays de URLs (test + prod)
+    urls(endpoint) {
+      return [
+        this.API_HOST + '/webhook-test' + this.ENDPOINTS[endpoint],
+        this.API_HOST + '/webhook' + this.ENDPOINTS[endpoint]
+      ];
+    }
   };
+
+  // Compatibilidad con constantes antiguas — orden: prod first si IS_PROD=true
+  const TEST_WEBHOOK_URLS = CONFIG.IS_PROD
+    ? [CONFIG.API_HOST + '/webhook' + CONFIG.ENDPOINTS.tests,      CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.tests]
+    : [CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.tests, CONFIG.API_HOST + '/webhook'      + CONFIG.ENDPOINTS.tests];
+  const LOGIN_WEBHOOK_URLS = CONFIG.IS_PROD
+    ? [CONFIG.API_HOST + '/webhook' + CONFIG.ENDPOINTS.login,      CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.login]
+    : [CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.login, CONFIG.API_HOST + '/webhook'      + CONFIG.ENDPOINTS.login];
+  const PROFILE_WEBHOOK_BASE_URLS = CONFIG.IS_PROD
+    ? [CONFIG.API_HOST + '/webhook' + CONFIG.ENDPOINTS.profile,      CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.profile]
+    : [CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.profile, CONFIG.API_HOST + '/webhook'      + CONFIG.ENDPOINTS.profile];
+  const LEADERBOARD_WEBHOOK_ENDPOINTS = {
+    test: CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.leaderboard,
+    prod: CONFIG.API_HOST + '/webhook' + CONFIG.ENDPOINTS.leaderboard
+  };
+  const LEADERBOARD_COMP_ENDPOINTS = {
+    test: CONFIG.API_HOST + '/webhook-test' + CONFIG.ENDPOINTS.leaderboardComp,
+    prod: CONFIG.API_HOST + '/webhook' + CONFIG.ENDPOINTS.leaderboardComp
+  };
+
+  // ========== VALIDACIÓN DE RESPUESTAS API ==========
+  function validateApiUser(data) {
+    if (!data || typeof data !== 'object') return false;
+    const id = data.userId || data.id || data.n8nUserId;
+    const username = data.username;
+    const email = data.email;
+    return (
+      typeof username === 'string' && username.trim().length > 0 &&
+      typeof email === 'string' && email.trim().length > 0
+    );
+  }
+
+  function validateApiTest(data) {
+    if (!data || typeof data !== 'object') return false;
+    const wpm = Number(data.wpm);
+    const acc = Number(data.acc ?? data.accuracy);
+    return isFinite(wpm) && wpm >= 0 && isFinite(acc) && acc >= 0;
+  }
 
   let profileSyncInFlight = false;
   let warnedNullOrigin = false;
@@ -545,8 +595,23 @@
     navButtons: document.querySelectorAll('.nav-btn'),
     sections: document.querySelectorAll('.section'),
     testInput: $('testInput'),
+    // 3-line player elements
+    testArea: $('testArea'),
+    textViewport: $('textViewport'),
+    textTrack: $('textTrack'),
+    testHint: $('testHint'),
+    shortcutsBar: document.querySelector('.shortcuts'),
+    // legacy (kept for result rendering)
     textDisplay: $('textDisplay'),
     typingCaret: $('typingCaret'),
+    // Nav auth elements
+    navLoginBtn: $('navLoginBtn'),
+    navUserPill: $('navUserPill'),
+    navAvatarLetter: $('navAvatarLetter'),
+    navUsername: $('navUsername'),
+    topBanner: $('topBanner'),
+    bannerClose: $('bannerClose'),
+    toastContainer: $('toastContainer'),
     wpmValue: $('wpmValue'),
     accValue: $('accValue'),
     timerValue: $('timerValue'),
@@ -583,6 +648,10 @@
     resultTestType: $('resultTestType'),
     resultTestLanguage: $('resultTestLanguage'),
     chartModeButtons: document.querySelectorAll('.chart-mode-btn'),
+    modesPanel: $('modesPanel') || document.querySelector('.modes-panel'),
+    configBar: $('configBar'),
+    configToggleBtn: $('configToggleBtn'),
+    testStats: $('testStats'),
     nextTestBtn: $('nextTestBtn'),
     repeatTestBtn: $('repeatTestBtn'),
     resultsNote: $('resultsNote'),
@@ -597,7 +666,6 @@
     themeButtons: document.querySelectorAll('.theme-btn'),
     soundToggle: $('soundToggle'),
     clearDataBtn: $('clearDataBtn'),
-    bannerClose: document.querySelector('.banner-close'),
     modalOverlay: $('modalOverlay'),
     closeResultsBtn: $('closeResultsBtn'),
     registerPanel: $('registerPanel'),
@@ -799,11 +867,73 @@
     setCategoryChipActive(STATE.currentCategory);
     updateTimerUiForMode();
     generateTestText();
-    renderTextDisplay();
-    updateCaretPosition();
+    // Use resetTest() so 3-line engine (buildTextLines) runs on first load
+    resetTest();
     initVersusUI();
     initLanguagesBeta();
     initCompetitiveUI();
+    initOnboarding();
+    initCookieBanner();
+  }
+
+  function initOnboarding() {
+    if (localStorage.getItem('typehubVisited')) return;
+    const overlay = document.getElementById('onboardingOverlay');
+    const modal = document.getElementById('onboardingModal');
+    if (!overlay || !modal) return;
+    overlay.style.display = 'block';
+    modal.style.display = 'block';
+
+    const steps = modal.querySelectorAll('.onboarding-step');
+    let current = 0;
+
+    function showStep(n) {
+      steps.forEach((s, i) => s.classList.toggle('active', i === n));
+      current = n;
+    }
+
+    modal.querySelectorAll('.onboarding-next').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (current < steps.length - 1) showStep(current + 1);
+      });
+    });
+
+    modal.querySelectorAll('.onboarding-prev').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (current > 0) showStep(current - 1);
+      });
+    });
+
+    function closeOnboarding() {
+      overlay.style.display = 'none';
+      modal.style.display = 'none';
+      localStorage.setItem('typehubVisited', '1');
+    }
+
+    const finishBtn = document.getElementById('onboardingFinish');
+    if (finishBtn) finishBtn.addEventListener('click', closeOnboarding);
+
+    const skipBtn = document.getElementById('onboardingSkip');
+    if (skipBtn) skipBtn.addEventListener('click', closeOnboarding);
+
+    overlay.addEventListener('click', closeOnboarding);
+  }
+
+  function initCookieBanner() {
+    if (localStorage.getItem('cookieConsent')) return;
+    const banner = document.getElementById('cookieBanner');
+    if (!banner) return;
+    banner.style.display = 'block';
+
+    function acceptCookies(type) {
+      localStorage.setItem('cookieConsent', type);
+      banner.style.display = 'none';
+    }
+
+    const acceptBtn = document.getElementById('cookieAccept');
+    const declineBtn = document.getElementById('cookieDecline');
+    if (acceptBtn) acceptBtn.addEventListener('click', () => acceptCookies('all'));
+    if (declineBtn) declineBtn.addEventListener('click', () => acceptCookies('essential'));
   }
 
   function loadSettings() {
@@ -817,10 +947,22 @@
     loadCurrentUser();
   }
 
+  function isTokenExpired(user) {
+    if (!user || !user.tokenExpires) return false; // sin token = no expira (sesión local)
+    return Date.now() > user.tokenExpires;
+  }
+
   function loadCurrentUser() {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-      STATE.currentUser = JSON.parse(savedUser);
+      const parsed = JSON.parse(savedUser);
+      // Si el token existe y ha expirado, cerrar sesión automáticamente
+      if (isTokenExpired(parsed)) {
+        localStorage.removeItem('currentUser');
+        STATE.currentUser = null;
+        return;
+      }
+      STATE.currentUser = parsed;
       updateAuthUI();
     }
   }
@@ -855,11 +997,10 @@
       app_version: '1.0'
     };
 
-    // Se envía a ambos webhooks para maximizar captura del evento de registro.
-    const registerWebhookUrls = [
-      'https://n8n.srv1369665.hstgr.cloud/webhook-test/api/register',
-      'https://n8n.srv1369665.hstgr.cloud/webhook/api/register'
-    ];
+    // Usar siempre el webhook de producción si IS_PROD, test como fallback
+    const registerWebhookUrls = CONFIG.IS_PROD
+      ? [CONFIG.API_HOST + '/webhook/api/register', CONFIG.API_HOST + '/webhook-test/api/register']
+      : [CONFIG.API_HOST + '/webhook-test/api/register', CONFIG.API_HOST + '/webhook/api/register'];
 
     const requestBody = {
       username: normalizedUsername,
@@ -1028,10 +1169,13 @@
     }
 
     const createdAt = payload.createdAt || payload.created_at || profileSeed.created_at;
+    // Almacenamos un hash no-reversible de la contraseña para login local fallback.
+    // NUNCA se guarda la contraseña en texto plano.
+    const passwordHash = hashText(normalizedPassword || password);
     const newUser = {
       username: normalizedUsername,
       email: normalizedEmail,
-      password,
+      passwordHash,
       createdAt: createdAt,
       n8nUserId: payload.userId || payload.id || null,
       testsStarted: profileSeed.tests_started,
@@ -1059,6 +1203,7 @@
     };
     localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
     updateAuthUI();
+    showToast('Cuenta creada. Bienvenido, ' + normalizedUsername + '!', 'ok');
 
     // Se mantiene para compatibilidad con el flujo actual de login local.
     loginUserByEmail(email, password);
@@ -1068,9 +1213,20 @@
   function loginUserLocal(email, password, showAlert) {
     const users = JSON.parse(localStorage.getItem('users') || '{}');
     const user = users[email];
-    if (!user || user.password !== password) {
+    // Comparar contra passwordHash (nunca se almacena contraseña en texto plano)
+    const inputHash = hashText(password);
+    const legacyMatch = user && user.password === password; // compatibilidad con datos antiguos
+    const hashMatch = user && user.passwordHash === inputHash;
+    if (!user || (!hashMatch && !legacyMatch)) {
       if (showAlert) alert('Email o contraseña incorrectos');
       return false;
+    }
+    // Si tenía contraseña legacy en texto plano, migrar a hash ahora
+    if (legacyMatch && !hashMatch) {
+      user.passwordHash = inputHash;
+      delete user.password;
+      users[email] = user;
+      localStorage.setItem('users', JSON.stringify(users));
     }
     STATE.currentUser = {
       email: user.email,
@@ -1159,7 +1315,8 @@
       const localUser = {
         username: payload.username || previous.username || normalizedEmail.split('@')[0],
         email: payload.email || previous.email || normalizedEmail,
-        password: previous.password || normalizedPassword,
+        // No almacenar contraseña en texto plano; guardar hash para login local fallback
+        passwordHash: previous.passwordHash || hashText(normalizedPassword),
         createdAt: payload.createdAt || payload.created_at || previous.createdAt || new Date().toISOString(),
         n8nUserId: payload.userId || payload.id || previous.n8nUserId || null,
         testsStarted: previous.testsStarted || 0,
@@ -1183,10 +1340,14 @@
         email: localUser.email,
         username: localUser.username,
         createdAt: localUser.createdAt,
-        n8nUserId: localUser.n8nUserId
+        n8nUserId: localUser.n8nUserId,
+        // Guardar token y expiración para re-autenticación futura
+        token: payload.token || null,
+        tokenExpires: payload.tokenExpires || null
       };
       localStorage.setItem('currentUser', JSON.stringify(STATE.currentUser));
       updateAuthUI();
+      showToast('Bienvenido, ' + localUser.username + '!', 'ok');
       return true;
     }
 
@@ -1342,12 +1503,23 @@
 
   function updateAuthUI() {
     const isLoggedIn = STATE.currentUser !== null;
-    ELEMENTS.registerPanel.style.display = isLoggedIn ? 'none' : 'block';
-    ELEMENTS.loginPanel.style.display = isLoggedIn ? 'none' : 'block';
-    ELEMENTS.profilePanel.style.display = isLoggedIn ? 'block' : 'none';
+    // Login section panels
+    if (ELEMENTS.registerPanel) ELEMENTS.registerPanel.style.display = isLoggedIn ? 'none' : 'block';
+    if (ELEMENTS.loginPanel)    ELEMENTS.loginPanel.style.display    = isLoggedIn ? 'none' : 'block';
+    if (ELEMENTS.profilePanel)  ELEMENTS.profilePanel.style.display  = isLoggedIn ? 'block' : 'none';
+
+    // Header nav pill ↔ login button
+    if (ELEMENTS.navLoginBtn) ELEMENTS.navLoginBtn.style.display  = isLoggedIn ? 'none' : '';
+    if (ELEMENTS.navUserPill) ELEMENTS.navUserPill.style.display  = isLoggedIn ? '' : 'none';
+    if (isLoggedIn && STATE.currentUser) {
+      const u = STATE.currentUser;
+      const letter = (u.username || u.email || '?').charAt(0).toUpperCase();
+      if (ELEMENTS.navAvatarLetter) ELEMENTS.navAvatarLetter.textContent = letter;
+      if (ELEMENTS.navUsername)     ELEMENTS.navUsername.textContent = u.username || u.email || 'usuario';
+    }
+
     syncVersusNamesAndRanks();
     showVersusLoginHintIfNeeded();
-    
     if (isLoggedIn) {
       displayProfile();
       void syncRemoteProfile();
@@ -1411,24 +1583,32 @@
     if (!ELEMENTS.leaderboardTableBody) return;
 
     if (!Array.isArray(entries) || entries.length === 0) {
-      ELEMENTS.leaderboardTableBody.innerHTML = '<tr><td colspan="6">No hay datos de leaderboard disponibles.</td></tr>';
+      ELEMENTS.leaderboardTableBody.innerHTML =
+        '<tr><td colspan="8" style="text-align:center;color:var(--text-sub);padding:1.5rem;">Sin datos disponibles. Pulsa "Recargar" para cargar datos remotos.</td></tr>';
       return;
     }
 
+    const medals = ['🥇', '🥈', '🥉'];
     ELEMENTS.leaderboardTableBody.innerHTML = entries.map((entry, idx) => {
-      const username = escapeHtml(entry.username || 'anon');
-      const bestWpm = Number(entry.best_wpm ?? entry.bestWpm ?? 0);
-      const totalXp = Number(entry.total_xp ?? entry.totalXp ?? 0);
-      const totalTests = Number(entry.total_tests ?? entry.totalTests ?? 0);
-      const createdAt = entry.created_at || entry.createdAt || '';
+      const username    = escapeHtml(entry.username || 'anon');
+      const bestWpm     = Number(entry.best_wpm    ?? entry.bestWpm    ?? 0);
+      const avgWpm      = Number(entry.avg_wpm     ?? entry.avgWpm     ?? 0);
+      const totalXp     = Number(entry.total_xp    ?? entry.totalXp    ?? 0);
+      const totalTests  = Number(entry.total_tests ?? entry.totalTests ?? 0);
+      const arenaName   = escapeHtml(entry.arena_name  ?? entry.arenaName  ?? '—');
+      const streakDays  = Number(entry.streak_days ?? entry.streakDays ?? 0);
+      const leagueLabel = escapeHtml(entry.league_label ?? entry.leagueLabel ?? '—');
+      const rank = (medals[idx] || '') + ' ' + (idx + 1);
 
       return '<tr>' +
-        '<td>' + (idx + 1) + '</td>' +
-        '<td>' + username + '</td>' +
-        '<td>' + (Number.isFinite(bestWpm) ? Math.round(bestWpm) : 0) + '</td>' +
-        '<td>' + (Number.isFinite(totalXp) ? totalXp.toLocaleString('es-ES') : '0') + '</td>' +
-        '<td>' + (Number.isFinite(totalTests) ? totalTests.toLocaleString('es-ES') : '0') + '</td>' +
-        '<td>' + escapeHtml(formatLeaderboardDate(createdAt)) + '</td>' +
+        '<td style="color:var(--text-sub);font-weight:700;">' + rank + '</td>' +
+        '<td style="color:var(--text);font-weight:600;">' + username + '</td>' +
+        '<td class="wpm-cell">' + (Number.isFinite(bestWpm) ? Math.round(bestWpm) : 0) + '</td>' +
+        '<td style="color:var(--text-sub);">' + (Number.isFinite(avgWpm) ? Math.round(avgWpm) : 0) + '</td>' +
+        '<td style="color:var(--accent);">' + (Number.isFinite(totalXp) ? totalXp.toLocaleString('es-ES') : '0') + '</td>' +
+        '<td>' + arenaName + '</td>' +
+        '<td>' + leagueLabel + '</td>' +
+        '<td>' + (streakDays > 0 ? '🔥 ' + streakDays + 'd' : '—') + '</td>' +
         '</tr>';
     }).join('');
   }
@@ -1537,6 +1717,13 @@
         if (all404) {
           return { ok: false, reason: 'endpoint-404' };
         }
+        const all5xx = fulfilled.length > 0 && fulfilled.every(result => {
+          const status = Number(result.value.status || 0);
+          return status >= 500;
+        });
+        if (all5xx) {
+          return { ok: false, reason: 'backend-5xx' };
+        }
         const allRejected = results.length > 0 && results.every(result => result.status === 'rejected');
         if (allRejected) {
           return { ok: false, reason: 'network-or-cors' };
@@ -1583,8 +1770,7 @@
       for (const url of candidates) {
         try {
           const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'x-user-id': String(userId) }
+            method: 'GET'
           });
           const data = await parseWebhookResponse(response);
           const item = { status: response.status, data: data, url: url };
@@ -1689,12 +1875,27 @@
         return { ok: false, reason: 'endpoint-404' };
       }
 
+      const fulfilled = results.filter(result => result.status === 'fulfilled' && !!result.value);
+      const all5xx = fulfilled.length > 0 && fulfilled.every(result => {
+        const status = Number(result.value.status || 0);
+        return status >= 500;
+      });
+      if (all5xx) return { ok: false, reason: 'backend-5xx' };
+
+      const allRejected = results.length > 0 && results.every(result => result.status === 'rejected');
+      if (allRejected) return { ok: false, reason: 'network-or-cors' };
+
       if (!successResult || successResult.status !== 'fulfilled') return { ok: false, reason: 'no-success-response' };
 
       const parsed = parseProfileResult(successResult.value.data);
       if (!parsed.success || !parsed.payload || !parsed.payload.user) return { ok: false, reason: 'bad-payload' };
 
       const remoteUser = parsed.payload.user;
+      // Validar estructura del usuario remoto antes de procesar
+      if (!validateApiUser(remoteUser)) {
+        console.error('[TypeHub] syncRemoteProfile: remoteUser inválido', remoteUser);
+        return { ok: false, reason: 'invalid-remote-user' };
+      }
       const recentTests = Array.isArray(parsed.payload.recentTests) ? parsed.payload.recentTests : [];
 
       const users = JSON.parse(localStorage.getItem('users') || '{}');
@@ -2183,6 +2384,7 @@
     users[STATE.currentUser.email] = user;
     localStorage.setItem('users', JSON.stringify(users));
 
+    showToast('Test guardado correctamente', 'ok');
     void sendTestResultToWebhooks(savedTest);
   }
 
@@ -2244,7 +2446,95 @@
     STATE.testText = pool[Math.floor(Math.random() * pool.length)];
   }
 
+  // =====================================================================
+  // 3-LINE CINEMATIC TEXT ENGINE
+  // Splits test text into lines, renders as .text-line divs,
+  // slides the track up when active line advances.
+  // =====================================================================
+
+  // Build an array of line objects from STATE.testText.
+  // Each line is an array of {char, globalIdx}.
+  // Lines are split at spaces to approximate visual wrapping.
+  function buildTextLines() {
+    const track = ELEMENTS.textTrack;
+    if (!track) return;
+
+    // Measure chars-per-line using a probe element
+    let charsPerLine = 55; // safe default
+    const probe = document.createElement('span');
+    probe.className = 'text-line';
+    probe.style.visibility = 'hidden';
+    probe.style.position = 'absolute';
+    probe.textContent = 'x'.repeat(60);
+    track.appendChild(probe);
+    const viewport = ELEMENTS.textViewport;
+    if (viewport) {
+      const vpW = viewport.offsetWidth;
+      const probePx = probe.offsetWidth;
+      if (probePx > 0) charsPerLine = Math.max(20, Math.floor((vpW / probePx) * 60));
+    }
+    probe.remove();
+
+    // Split text into lines respecting word boundaries
+    const words = STATE.testText.split(' ');
+    const lines = []; // array of {chars: [{char, globalIdx}]}
+    let currentLine = { chars: [], length: 0 };
+    let globalIdx = 0;
+
+    for (let wi = 0; wi < words.length; wi++) {
+      const word = words[wi];
+      const wordLen = word.length + (wi < words.length - 1 ? 1 : 0); // +1 for space
+      if (currentLine.length > 0 && currentLine.length + wordLen > charsPerLine) {
+        lines.push(currentLine);
+        currentLine = { chars: [], length: 0 };
+      }
+      for (let ci = 0; ci < word.length; ci++) {
+        currentLine.chars.push({ char: word[ci], globalIdx: globalIdx++ });
+        currentLine.length++;
+      }
+      if (wi < words.length - 1) {
+        currentLine.chars.push({ char: ' ', globalIdx: globalIdx++ });
+        currentLine.length++;
+      }
+    }
+    if (currentLine.chars.length > 0) lines.push(currentLine);
+
+    STATE._textLines = lines;
+    STATE._activeLineIdx = 0;
+
+    // Render all lines into the DOM
+    track.innerHTML = '';
+    lines.forEach((line, li) => {
+      const lineEl = document.createElement('div');
+      lineEl.className = 'text-line line-below';
+      lineEl.dataset.line = li;
+      line.chars.forEach(({ char, globalIdx }) => {
+        const s = document.createElement('span');
+        s.dataset.i = globalIdx;
+        s.textContent = char;
+        lineEl.appendChild(s);
+      });
+      track.appendChild(lineEl);
+    });
+
+    // Activate first line
+    _updateLineClasses(0);
+    _scrollToLine(0, false);
+
+    // Show/hide hint
+    if (ELEMENTS.testHint) ELEMENTS.testHint.classList.remove('hidden');
+  }
+
+  // Called after each keystroke to update char state and possibly advance line
   function renderTextDisplay() {
+    const track = ELEMENTS.textTrack;
+    // If new 3-line engine is available, use it
+    if (track && STATE._textLines) {
+      _render3Line();
+      return;
+    }
+    // Legacy fallback (if textDisplay exists)
+    if (!ELEMENTS.textDisplay) return;
     let html = '';
     for (let i = 0; i < STATE.testText.length; i++) {
       const char = STATE.testText[i];
@@ -2260,33 +2550,123 @@
     updateCaretPosition();
   }
 
-  function updateCaretPosition() {
-    const caret = ELEMENTS.typingCaret;
-    if (!caret) return;
+  function _render3Line() {
+    const track = ELEMENTS.textTrack;
+    if (!track || !STATE._textLines) return;
 
-    if (STATE.currentCharIndex >= STATE.testText.length) {
-      caret.style.opacity = '0';
-      return;
+    // Update all char spans' classes
+    const allSpans = track.querySelectorAll('span[data-i]');
+    allSpans.forEach(span => {
+      const i = parseInt(span.dataset.i, 10);
+      const state = STATE.charStates[i];
+      span.className = state === 'correct'
+        ? 'correct'
+        : state === 'incorrect'
+          ? 'incorrect'
+          : i === STATE.currentCharIndex
+            ? 'current'
+            : '';
+    });
+
+    // Determine which line contains current char
+    const curIdx = STATE.currentCharIndex;
+    let newActiveLine = STATE._activeLineIdx || 0;
+    for (let li = 0; li < STATE._textLines.length; li++) {
+      const line = STATE._textLines[li];
+      const first = line.chars[0].globalIdx;
+      const last  = line.chars[line.chars.length - 1].globalIdx;
+      if (curIdx >= first && curIdx <= last + 1) {
+        newActiveLine = li;
+        break;
+      }
     }
 
+    if (newActiveLine !== STATE._activeLineIdx) {
+      STATE._activeLineIdx = newActiveLine;
+      _updateLineClasses(newActiveLine);
+      _scrollToLine(newActiveLine, true);
+    }
+
+    // Update caret position
+    _updateCaret3Line(curIdx);
+
+    // Hide hint once typing starts
+    if (ELEMENTS.testHint && STATE.currentCharIndex > 0) {
+      ELEMENTS.testHint.classList.add('hidden');
+    }
+  }
+
+  function _updateLineClasses(activeIdx) {
+    const track = ELEMENTS.textTrack;
+    if (!track) return;
+    const lineEls = track.querySelectorAll('.text-line');
+    lineEls.forEach((el, li) => {
+      el.classList.remove('line-above', 'line-active', 'line-below');
+      if (li < activeIdx)      el.classList.add('line-above');
+      else if (li === activeIdx) el.classList.add('line-active');
+      else                     el.classList.add('line-below');
+    });
+  }
+
+  function _scrollToLine(activeIdx, animate) {
+    const track = ELEMENTS.textTrack;
+    const viewport = ELEMENTS.textViewport;
+    if (!track || !viewport) return;
+    // Each line is --line-h tall. We want: line at index `activeIdx` to sit in the middle slot (index 1 of 3).
+    const lineH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--line-h')) || 35;
+    // Target offset: shift track so that activeLine is centered (slot 1 = 1 lineH from top of viewport)
+    const targetTranslateY = -((activeIdx - 1) * lineH);
+    track.style.transform = 'translateY(' + targetTranslateY + 'px)';
+    if (!animate) {
+      track.style.transition = 'none';
+      // Re-enable after paint
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { track.style.transition = ''; });
+      });
+    }
+  }
+
+  function _updateCaret3Line(charIdx) {
+    const caret = ELEMENTS.typingCaret;
+    if (!caret) return;
+    if (charIdx >= STATE.testText.length) { caret.style.opacity = '0'; return; }
+    const span = ELEMENTS.textTrack
+      ? ELEMENTS.textTrack.querySelector('span[data-i="' + charIdx + '"]')
+      : null;
+    if (!span) { caret.style.opacity = '0'; return; }
+    const viewport = ELEMENTS.textViewport;
+    const areaRect  = (viewport || ELEMENTS.textTrack).getBoundingClientRect();
+    const spanRect  = span.getBoundingClientRect();
+    const x = spanRect.left - areaRect.left;
+    const y = spanRect.top  - areaRect.top + (spanRect.height * 0.06);
+    const h = Math.max(14, spanRect.height * 0.86);
+    caret.style.opacity = '1';
+    caret.style.left   = x + 'px';
+    caret.style.top    = y + 'px';
+    caret.style.height = h + 'px';
+  }
+
+  function updateCaretPosition() {
+    // Route to new engine if available
+    if (ELEMENTS.textTrack && STATE._textLines) {
+      _updateCaret3Line(STATE.currentCharIndex);
+      return;
+    }
+    const caret = ELEMENTS.typingCaret;
+    if (!caret) return;
+    if (STATE.currentCharIndex >= STATE.testText.length) { caret.style.opacity = '0'; return; }
+    if (!ELEMENTS.textDisplay) return;
     const currentEl = ELEMENTS.textDisplay.querySelector('[data-i="' + STATE.currentCharIndex + '"]');
     if (!currentEl) return;
-
-    // Obtener rectángulos en coordenadas de pantalla
     const testAreaRect = ELEMENTS.textDisplay.parentElement.getBoundingClientRect();
     const charRect = currentEl.getBoundingClientRect();
-
-    // Calcular posición relativa al contenedor del caret (.test-area)
     const x = charRect.left - testAreaRect.left;
-    const y = charRect.top - testAreaRect.top + (charRect.height * 0.08);
+    const y = charRect.top  - testAreaRect.top + (charRect.height * 0.08);
     const h = Math.max(12, charRect.height * 0.84);
-
     caret.style.opacity = '1';
-    caret.style.left = x + 'px';
-    caret.style.top = y + 'px';
+    caret.style.left   = x + 'px';
+    caret.style.top    = y + 'px';
     caret.style.height = h + 'px';
-
-    // Scroll suave para mantener visible la letra actual
     currentEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
 
@@ -2326,6 +2706,39 @@
         endTest();
       }
     }, 100);
+  }
+
+  // ========== SISTEMA DE TOAST ==========
+  let _toastTimer = null;
+  function showToast(message, type, duration) {
+    type     = type     || 'info';
+    duration = duration || 3000;
+    // Use the new toast container if available, fall back to legacy competitive toast
+    const container = ELEMENTS.toastContainer || document.getElementById('toastContainer');
+    if (container) {
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + (type === 'ok' ? 'ok' : type === 'err' ? 'err' : type === 'warn' ? 'warn' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'opacity 300ms ease, transform 300ms ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(6px)';
+        setTimeout(() => toast.remove(), 320);
+      }, duration);
+      return;
+    }
+    // Legacy fallback
+    const el = document.getElementById('competitiveToast');
+    if (!el) return;
+    el.textContent = message;
+    el.style.display = 'block';
+    el.style.opacity = '1';
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 350);
+    }, duration);
   }
 
   function setupEventListeners() {
@@ -2372,10 +2785,12 @@
 
     ELEMENTS.testInput.addEventListener('keydown', handleKeyDown);
     ELEMENTS.testInput.addEventListener('input', handleTestInput);
-    ELEMENTS.textDisplay.addEventListener('click', () => ELEMENTS.testInput.focus());
+    // Click on text area or legacy textDisplay → focus input
+    if (ELEMENTS.testArea) ELEMENTS.testArea.addEventListener('click', () => ELEMENTS.testInput.focus());
+    if (ELEMENTS.textDisplay) ELEMENTS.textDisplay.addEventListener('click', () => ELEMENTS.testInput.focus());
 
     ELEMENTS.restartBtn.addEventListener('click', rebuildTest);
-    ELEMENTS.retryBtn.addEventListener('click', closeResults);
+    if (ELEMENTS.retryBtn) ELEMENTS.retryBtn.addEventListener('click', closeResults);
 
     ELEMENTS.themeButtons.forEach(btn => btn.addEventListener('click', handleThemeChange));
     ELEMENTS.soundToggle.addEventListener('change', () => {
@@ -2388,12 +2803,89 @@
         location.reload();
       }
     });
-    ELEMENTS.bannerClose.addEventListener('click', () => {
-      document.querySelector('.banner').style.display = 'none';
-    });
+    const bannerCloseEl = ELEMENTS.bannerClose || document.querySelector('.banner-close');
+    if (bannerCloseEl) {
+      bannerCloseEl.addEventListener('click', () => {
+        const banner = ELEMENTS.topBanner || document.querySelector('.banner');
+        if (banner) banner.style.display = 'none';
+      });
+    }
 
-    ELEMENTS.closeResultsBtn.addEventListener('click', closeResults);
-    ELEMENTS.modalOverlay.addEventListener('click', closeResults);
+    // ── Config toggle button (⋯) — expand/collapse config panel
+    if (ELEMENTS.configToggleBtn && ELEMENTS.modesPanel) {
+      ELEMENTS.configToggleBtn.addEventListener('click', () => {
+        const isHidden = ELEMENTS.modesPanel.classList.contains('panel-hidden');
+        ELEMENTS.modesPanel.classList.toggle('panel-hidden', !isHidden);
+        ELEMENTS.configToggleBtn.classList.toggle('active', !isHidden ? false : true);
+        if (ELEMENTS.configBar) ELEMENTS.configBar.classList.toggle('config-bar--expanded', !isHidden ? false : true);
+      });
+    }
+
+    // ── Config bar quick chips (type / duration / difficulty)
+    document.querySelectorAll('.config-bar__chip[data-dur]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dur = parseInt(btn.dataset.dur, 10);
+        STATE.currentDuration = dur;
+        // Sync hidden select
+        if (ELEMENTS.timeSelect) ELEMENTS.timeSelect.value = String(dur);
+        updateTimerUiForMode();
+        // Update config-chip active state in full panel
+        document.querySelectorAll('.config-chip[data-ctrl="timeSelect"]').forEach(c => {
+          c.classList.toggle('config-chip--active', c.dataset.val === String(dur));
+        });
+        // Update config-bar chips
+        document.querySelectorAll('.config-bar__chip[data-dur]').forEach(c => {
+          c.classList.toggle('config-bar__chip--active', c.dataset.dur === String(dur));
+        });
+        rebuildTest();
+      });
+    });
+    document.querySelectorAll('.config-bar__chip[data-diff]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const diff = btn.dataset.diff;
+        STATE.currentDifficulty = diff;
+        if (ELEMENTS.difficultySelect) ELEMENTS.difficultySelect.value = diff;
+        document.querySelectorAll('.config-chip[data-ctrl="difficultySelect"]').forEach(c => {
+          c.classList.toggle('config-chip--active', c.dataset.val === diff);
+        });
+        document.querySelectorAll('.config-bar__chip[data-diff]').forEach(c => {
+          c.classList.toggle('config-bar__chip--active', c.dataset.diff === diff);
+        });
+        rebuildTest();
+      });
+    });
+    document.querySelectorAll('.config-bar__chip[data-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        switchContentType(type);
+        document.querySelectorAll('.config-bar__chip[data-type]').forEach(c => {
+          c.classList.toggle('config-bar__chip--active', c.dataset.type === type);
+        });
+      });
+    });
+    // Punct/nums toggles in config-bar
+    const cbPunct = $('cbPunct');
+    const cbNums  = $('cbNums');
+    if (cbPunct) {
+      cbPunct.addEventListener('click', () => {
+        STATE.optPunctuation = !STATE.optPunctuation;
+        if (ELEMENTS.optPunctuation) ELEMENTS.optPunctuation.checked = STATE.optPunctuation;
+        cbPunct.classList.toggle('config-bar__chip--active', STATE.optPunctuation);
+        rebuildTest();
+      });
+    }
+    if (cbNums) {
+      cbNums.addEventListener('click', () => {
+        STATE.optNumbers = !STATE.optNumbers;
+        if (ELEMENTS.optNumbers) ELEMENTS.optNumbers.checked = STATE.optNumbers;
+        cbNums.classList.toggle('config-bar__chip--active', STATE.optNumbers);
+        rebuildTest();
+      });
+    }
+
+    if (ELEMENTS.closeResultsBtn) ELEMENTS.closeResultsBtn.addEventListener('click', closeResults);
+    // modalOverlay is no longer used for results, but keep for other modals
+    if (ELEMENTS.modalOverlay) ELEMENTS.modalOverlay.addEventListener('click', closeResults);
 
     ELEMENTS.registerForm.addEventListener('submit', async e => {
       e.preventDefault();
@@ -2504,6 +2996,10 @@
             setReloadProfileStatus('Bloqueado por CORS en file://. Publica o usa localhost.', 'err');
           } else if (reason === 'endpoint-404') {
             setReloadProfileStatus('Webhook profile no encontrado (404). Revisa ruta/activación en n8n.', 'err');
+          } else if (reason === 'backend-5xx') {
+            setReloadProfileStatus('Backend n8n respondió 5xx. Revisa ejecución del workflow y CORS.', 'err');
+          } else if (reason === 'network-or-cors') {
+            setReloadProfileStatus('Petición bloqueada por red/CORS. Revisa Access-Control-Allow-Origin.', 'err');
           } else if (reason === 'retry-later') {
             setReloadProfileStatus('Reintentando en unos segundos para evitar spam de errores.', '');
           } else if (reason === 'in-flight') {
@@ -2535,6 +3031,8 @@
             setReloadLeaderboardStatus('Bloqueado por CORS en file://. Publica o usa localhost.', 'err');
           } else if (reason === 'endpoint-404') {
             setReloadLeaderboardStatus('Webhook leaderboard no activo (404). Activa el workflow en n8n.', 'err');
+          } else if (reason === 'backend-5xx') {
+            setReloadLeaderboardStatus('Backend n8n respondió 5xx. Revisa workflow y logs del endpoint.', 'err');
           } else if (reason === 'network-or-cors') {
             setReloadLeaderboardStatus('Petición bloqueada por red/CORS. Revisa Access-Control-Allow-Origin.', 'err');
           } else if (reason === 'in-flight') {
@@ -2610,22 +3108,22 @@
     const termsModalOverlay = $('termsModalOverlay');
     const closeTermsBtn = $('closeTermsBtn');
     
-    if (termsLink) {
+    if (termsLink && termsModal) {
       termsLink.addEventListener('click', e => {
         e.preventDefault();
         termsModal.style.display = 'block';
-        termsModalOverlay.style.display = 'block';
+        if (termsModalOverlay) termsModalOverlay.style.display = 'block';
       });
     }
-    
-    if (closeTermsBtn) {
+
+    if (closeTermsBtn && termsModal) {
       closeTermsBtn.addEventListener('click', () => {
         termsModal.style.display = 'none';
-        termsModalOverlay.style.display = 'none';
+        if (termsModalOverlay) termsModalOverlay.style.display = 'none';
       });
     }
-    
-    if (termsModalOverlay) {
+
+    if (termsModalOverlay && termsModal) {
       termsModalOverlay.addEventListener('click', () => {
         termsModal.style.display = 'none';
         termsModalOverlay.style.display = 'none';
@@ -2635,11 +3133,7 @@
     // Event listeners para los botones de modo de gráfico (escala/raw/errores)
     ELEMENTS.chartModeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        ELEMENTS.chartModeButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const mode = btn.dataset.mode;
-        // TODO: Filtrar y redibujar gráfico según mode (scale/raw/errors)
-        drawWpmChart([...STATE.wpmHistory]);
+        redrawChart(btn.dataset.mode);
       });
     });
 
@@ -2803,9 +3297,58 @@
       });
     }
 
+    // ── Full config panel: accordion toggle
+    const accordionBtn = document.querySelector('.config-accordion-btn');
+    if (accordionBtn) {
+      accordionBtn.addEventListener('click', () => {
+        const body = document.getElementById('advancedBody');
+        const isOpen = !body.hidden;
+        body.hidden = isOpen;
+        accordionBtn.setAttribute('aria-expanded', !isOpen);
+        const arrow = accordionBtn.querySelector('.config-accordion-arrow');
+        if (arrow) arrow.textContent = isOpen ? '›' : '⌄';
+      });
+    }
+
+    // ── Full config panel: config-chip syncs selects
+    document.querySelectorAll('.config-chip[data-ctrl]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const ctrl = chip.dataset.ctrl;
+        const val  = chip.dataset.val;
+        if (!ctrl || !val) return;
+        const sel = document.getElementById(ctrl);
+        if (sel) { sel.value = val; sel.dispatchEvent(new Event('change')); }
+        // Visual active state
+        document.querySelectorAll('.config-chip[data-ctrl="' + ctrl + '"]').forEach(c => {
+          c.classList.toggle('config-chip--active', c.dataset.val === val);
+        });
+      });
+    });
+
+    // ── Full config panel: Start / Reset buttons
+    const configStartBtn = document.getElementById('configStartBtn');
+    if (configStartBtn) {
+      configStartBtn.addEventListener('click', () => {
+        if (ELEMENTS.modesPanel) ELEMENTS.modesPanel.classList.add('panel-hidden');
+        ELEMENTS.testInput.focus();
+      });
+    }
+    const configResetBtn = document.getElementById('configResetBtn');
+    if (configResetBtn) {
+      configResetBtn.addEventListener('click', () => {
+        rebuildTest();
+        if (ELEMENTS.modesPanel) ELEMENTS.modesPanel.classList.add('panel-hidden');
+      });
+    }
+
     window.addEventListener('resize', () => {
       updateCaretPosition();
       updateVersusCaretPosition();
+      // Rebuild lines on resize since char-per-line changes
+      if (ELEMENTS.textTrack && STATE._textLines && !STATE.isTestActive) {
+        STATE._textLines = null;
+        buildTextLines();
+      }
     });
 
     document.addEventListener('keydown', handleGlobalShortcuts);
@@ -2831,6 +3374,30 @@
   }
 
   function handleKeyDown(e) {
+    // Prevent Tab from moving focus away from the test input
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      return;
+    }
+
+    // Ctrl+Backspace / Ctrl+Delete: delete back to start of current word
+    if (e.ctrlKey && (e.key === 'Backspace' || e.key === 'Delete')) {
+      e.preventDefault();
+      if (!STATE.isTestActive) return;
+      const input = ELEMENTS.testInput.value;
+      const truncated = input.slice(0, STATE.wordStartIndex);
+      ELEMENTS.testInput.value = truncated;
+      // Roll back char states for all removed characters
+      for (let i = input.length - 1; i >= STATE.wordStartIndex; i--) {
+        rollbackCharState(i);
+      }
+      STATE.currentCharIndex = STATE.wordStartIndex;
+      STATE.prevInputLength = STATE.wordStartIndex;
+      updateLiveMetrics();
+      renderTextDisplay();
+      return;
+    }
+
     if (!STATE.isTestActive && e.key.length === 1) {
       startTest();
     }
@@ -2904,7 +3471,15 @@
 
     // El espacio es 'empty', y nuevas palabras comienzan como 'empty'
     STATE.charStates = newCharStates;
-    renderTextDisplay();
+
+    // Rebuild 3-line engine for the extended text
+    if (ELEMENTS.textTrack) {
+      STATE._textLines = null;
+      buildTextLines();
+      _render3Line();
+    } else {
+      renderTextDisplay();
+    }
   }
 
   function setCharStateFromTyping(pos, typed, expected) {
@@ -2998,14 +3573,24 @@
   }
 
   function startTest() {
+    if (ELEMENTS.modesPanel)   ELEMENTS.modesPanel.classList.add('panel-hidden');
+    if (ELEMENTS.configBar)    ELEMENTS.configBar.classList.add('config-bar--hidden');
+    if (ELEMENTS.testStats)    ELEMENTS.testStats.classList.remove('stats-hidden');
+    if (ELEMENTS.testArea)   { ELEMENTS.testArea.style.display = ''; ELEMENTS.testArea.classList.add('is-active'); }
+    if (ELEMENTS.testHint)     ELEMENTS.testHint.classList.add('hidden');
     bumpUserCounter('testsStarted', 1);
     STATE.isTestActive = true;
+    STATE.lastTabPressAt = 0;   // clear Tab+Space combo window so typing Space won't restart
     STATE.testStartTime = Date.now();
     STATE.elapsedTime = 0;
     STATE.correctChars = 0;
     STATE.incorrectChars = 0;
     STATE.correctedChars = 0;
     STATE.wpmHistory = [];
+    STATE.rawWpmHistory = [];
+    STATE.errorsPerSecond = [];
+    STATE.chartMode = 'scale';
+    STATE._prevIncorrectCharsSnapshot = 0;
     STATE.prevInputLength = 0;
     STATE.wordStartIndex = 0;
 
@@ -3014,8 +3599,14 @@
 
     STATE.wpmSnapshotInterval = setInterval(() => {
       const elapsed = (Date.now() - STATE.testStartTime) / 60000;
+      const totalChars = STATE.correctChars + STATE.incorrectChars;
       const wpm = elapsed > 0 ? Math.round((STATE.correctChars / 5) / elapsed) : 0;
+      const rawWpm = elapsed > 0 ? Math.round((totalChars / 5) / elapsed) : 0;
+      const errorsThisSecond = STATE.incorrectChars - (STATE._prevIncorrectCharsSnapshot || 0);
+      STATE._prevIncorrectCharsSnapshot = STATE.incorrectChars;
       STATE.wpmHistory.push(wpm);
+      STATE.rawWpmHistory.push(rawWpm);
+      STATE.errorsPerSecond.push(Math.max(0, errorsThisSecond));
     }, 1000);
 
     playSound('start');
@@ -3035,11 +3626,18 @@
 
   function closeResults() {
     ELEMENTS.results.style.display = 'none';
-    ELEMENTS.modalOverlay.style.display = 'none';
+    if (ELEMENTS.testArea)     ELEMENTS.testArea.style.display = '';
+    if (ELEMENTS.shortcutsBar) ELEMENTS.shortcutsBar.style.display = '';
+    if (ELEMENTS.modesPanel)   ELEMENTS.modesPanel.classList.add('panel-hidden');
+    if (ELEMENTS.configBar)    ELEMENTS.configBar.classList.remove('config-bar--hidden');
+    if (ELEMENTS.testStats)    ELEMENTS.testStats.classList.add('stats-hidden');
     rebuildTest();
   }
 
   function resetTest() {
+    if (ELEMENTS.modesPanel) ELEMENTS.modesPanel.classList.add('panel-hidden');
+    if (ELEMENTS.configBar)  ELEMENTS.configBar.classList.remove('config-bar--hidden');
+    if (ELEMENTS.testStats)  ELEMENTS.testStats.classList.add('stats-hidden');
     STATE.isTestActive = false;
     clearInterval(STATE.timerInterval);
     clearInterval(STATE.wpmSnapshotInterval);
@@ -3050,20 +3648,42 @@
     STATE.incorrectChars = 0;
     STATE.correctedChars = 0;
     STATE.wpmHistory = [];
+    STATE.rawWpmHistory = [];
+    STATE.errorsPerSecond = [];
+    STATE.chartMode = 'scale';
+    STATE._prevIncorrectCharsSnapshot = 0;
     STATE.elapsedTime = 0;
     STATE.prevInputLength = 0;
     STATE.charStates = new Array(STATE.testText.length).fill('empty');
+    STATE._textLines   = null;
+    STATE._activeLineIdx = 0;
 
     ELEMENTS.testInput.value = '';
     ELEMENTS.results.style.display = 'none';
-    ELEMENTS.modalOverlay.style.display = 'none';
+    if (ELEMENTS.testArea)     ELEMENTS.testArea.style.display = '';
+    if (ELEMENTS.shortcutsBar) ELEMENTS.shortcutsBar.style.display = '';
     ELEMENTS.testInput.disabled = false;
-    ELEMENTS.wpmValue.textContent = '0';
-    ELEMENTS.accValue.textContent = '100%';
+    if (ELEMENTS.wpmValue)  ELEMENTS.wpmValue.textContent  = '0';
+    if (ELEMENTS.accValue)  ELEMENTS.accValue.textContent  = '100%';
     updateTimerUiForMode();
 
-    renderTextDisplay();
-    ELEMENTS.testInput.focus();
+    // Build the 3-line cinematic text player
+    if (ELEMENTS.textTrack) {
+      // Defer one tick so the viewport has its final width
+      requestAnimationFrame(() => {
+        buildTextLines();
+        // Caret initial position
+        _updateCaret3Line(0);
+        ELEMENTS.testInput.focus();
+      });
+    } else {
+      renderTextDisplay();
+      ELEMENTS.testInput.focus();
+    }
+
+    // Show test area hint
+    if (ELEMENTS.testHint) ELEMENTS.testHint.classList.remove('hidden');
+    if (ELEMENTS.testArea)  ELEMENTS.testArea.classList.remove('is-active');
   }
 
   function updateLiveMetrics() {
@@ -3092,14 +3712,8 @@
     const acc = totalChars > 0 ? (STATE.correctChars / totalChars) * 100 : 100;
     const accRounded = Math.round(acc);
     
-    // Consistencia: variancia de velocidad (simplificada)
-    let consistency = 100;
-    if (STATE.wpmHistory.length > 1) {
-      const avg = STATE.wpmHistory.reduce((a, b) => a + b) / STATE.wpmHistory.length;
-      const variance = STATE.wpmHistory.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / STATE.wpmHistory.length;
-      const stdDev = Math.sqrt(variance);
-      consistency = Math.max(0, Math.min(100, 100 - (stdDev / avg * 100)));
-    }
+    // Consistencia: usa función centralizada con guards anti-NaN
+    const consistency = calculateConsistency(STATE.wpmHistory);
     
     const timeInSeconds = STATE.elapsedTime / 1000;
     const hours = Math.floor(timeInSeconds / 3600);
@@ -3141,6 +3755,21 @@
       resultsNote.style.display = STATE.currentUser ? 'none' : 'block';
     }
 
+    // Comprobar récord personal
+    const recordBadge = $('newRecordBadge');
+    if (recordBadge) recordBadge.style.display = 'none';
+    if (STATE.currentUser) {
+      const users = JSON.parse(localStorage.getItem('users') || '{}');
+      const userData = users[STATE.currentUser.email];
+      if (userData && userData.tests && userData.tests.length > 0) {
+        const prevBest = userData.tests.reduce((best, t) => Math.max(best, Number(t.wpm || 0)), 0);
+        if (wpm > prevBest && recordBadge) {
+          recordBadge.style.display = 'inline-block';
+          showToast('Nuevo Récord Personal: ' + wpm + ' WPM!', 'ok');
+        }
+      }
+    }
+
     // Guardar resultado si el usuario está logueado
     if (STATE.currentUser) {
       saveTestResult({
@@ -3173,12 +3802,73 @@
       });
     }
 
-    ELEMENTS.modalOverlay.style.display = 'block';
+    // Results are inline — hide test area & shortcuts, show results panel in the same space
+    if (ELEMENTS.testArea)     ELEMENTS.testArea.style.display = 'none';
+    if (ELEMENTS.shortcutsBar) ELEMENTS.shortcutsBar.style.display = 'none';
+    if (ELEMENTS.testStats)    ELEMENTS.testStats.classList.add('stats-hidden');
+    if (ELEMENTS.configBar)    ELEMENTS.configBar.classList.remove('config-bar--hidden');
     ELEMENTS.results.style.display = 'block';
-    drawWpmChart([...STATE.wpmHistory, wpm]);
+    STATE.chartMode = 'scale';
+    ELEMENTS.chartModeButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === 'scale');
+    });
+    drawWpmChart(STATE.wpmHistory, 'scale');
   }
 
-  function drawWpmChart(data) {
+  function redrawChart(mode) {
+    STATE.chartMode = mode || 'scale';
+    // Actualizar estado activo de botones
+    document.querySelectorAll('.chart-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === STATE.chartMode);
+    });
+    if (STATE.chartMode === 'raw') {
+      drawWpmChart(STATE.rawWpmHistory, 'raw');
+    } else if (STATE.chartMode === 'errors') {
+      drawErrorsChart(STATE.errorsPerSecond);
+    } else {
+      drawWpmChart(STATE.wpmHistory, 'scale');
+    }
+  }
+
+  function drawErrorsChart(data) {
+    const canvas = ELEMENTS.wpmChart;
+    const ctx = canvas.getContext('2d');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth || 760;
+    canvas.height = 260;
+    const W = canvas.width; const H = canvas.height;
+    const pad = { top: 24, right: 20, bottom: 44, left: 54 };
+    const chartW = W - pad.left - pad.right;
+    const chartH = H - pad.top - pad.bottom;
+    const style = getComputedStyle(document.body);
+    const errColor = style.getPropertyValue('--error-color').trim() || '#ff6b6b';
+    const textLight = style.getPropertyValue('--text-light').trim() || '#a8aab5';
+    const bgSec = style.getPropertyValue('--bg-secondary').trim() || '#2c2e31';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bgSec;
+    ctx.fillRect(0, 0, W, H);
+    if (!data || data.length === 0) {
+      ctx.fillStyle = textLight;
+      ctx.font = '13px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Sin errores registrados', W / 2, H / 2);
+      return;
+    }
+    const maxVal = Math.max(...data, 1);
+    const barWidth = Math.max(2, (chartW / data.length) - 2);
+    data.forEach((val, i) => {
+      const x = pad.left + (i / data.length) * chartW;
+      const barH = val > 0 ? Math.max(4, (val / maxVal) * chartH) : 0;
+      ctx.fillStyle = errColor + 'cc';
+      ctx.fillRect(x, pad.top + chartH - barH, barWidth, barH);
+    });
+    ctx.fillStyle = textLight;
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Errores por segundo', W / 2, H - 6);
+  }
+
+  function drawWpmChart(data, mode) {
     const canvas = ELEMENTS.wpmChart;
     const ctx = canvas.getContext('2d');
     const parent = canvas.parentElement;
@@ -3248,19 +3938,20 @@
       y: pad.top + chartH - (v / range) * chartH
     }));
 
+    const lineColor = (mode === 'raw') ? textLight : accent;
     ctx.beginPath();
     ctx.moveTo(points[0].x, pad.top + chartH);
     points.forEach(p => ctx.lineTo(p.x, p.y));
     ctx.lineTo(points[points.length - 1].x, pad.top + chartH);
     ctx.closePath();
     const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-    grad.addColorStop(0, accent + '66');
-    grad.addColorStop(1, accent + '00');
+    grad.addColorStop(0, lineColor + '66');
+    grad.addColorStop(1, lineColor + '00');
     ctx.fillStyle = grad;
     ctx.fill();
 
     ctx.beginPath();
-    ctx.strokeStyle = accent;
+    ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -3873,7 +4564,8 @@
     if (avg <= 0) return 0;
     const variance = history.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / history.length;
     const stdDev = Math.sqrt(variance);
-    return Math.max(0, Math.min(100, 100 - (stdDev / avg * 100)));
+    const result = Math.max(0, Math.min(100, 100 - (stdDev / avg * 100)));
+    return isFinite(result) ? result : 0;
   }
 
   function getVersusSideMetrics(sideState, elapsedMs) {
@@ -4582,6 +5274,69 @@
     updateVersusEliteBadge(snapshot.isTop100);
   }
 
+  async function syncCompetitiveLeaderboard({ limit = 50 } = {}) {
+    const urls = [LEADERBOARD_COMP_ENDPOINTS.test, LEADERBOARD_COMP_ENDPOINTS.prod];
+
+    let rows = null;
+
+    try {
+      const results = await Promise.allSettled(
+        urls.map(async baseUrl => {
+          const url = baseUrl + '?limit=' + encodeURIComponent(String(limit));
+          const response = await fetch(url, { method: 'GET' });
+          const data = await parseWebhookResponse(response);
+          return { ok: response.ok, status: response.status, data, url };
+        })
+      );
+
+      // Tomar la primera respuesta exitosa
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value || !result.value.ok) continue;
+        const payload = result.value.data;
+        const candidates = payload && (payload.competitive || payload.leaderboard || payload.entries || payload);
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          rows = candidates;
+          console.log('[CompetitiveLeaderboard] cargado desde', result.value.url, '— entradas:', rows.length);
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn('[CompetitiveLeaderboard] error:', err.message);
+      return;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn('[CompetitiveLeaderboard] sin datos o sin respuesta OK');
+      return;
+    }
+
+    // ── Renderizar tabla en sección "ligas" ──
+    if (ELEMENTS.leaguesTableBody) {
+      ELEMENTS.leaguesTableBody.innerHTML = rows.map((row, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+        return '<tr>' +
+          '<td>' + medal + '</td>' +
+          '<td>@' + (row.username || '—') + '</td>' +
+          '<td>' + (row.leagueLabel || row.league_label || row.arena_name || '—') + '</td>' +
+          '<td>' + (row.trophies ?? '—') + '</td>' +
+          '<td>' + (row.bestWpm ?? row.best_wpm ?? '—') + ' wpm</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    // ── Renderizar mini-lista en sección "competitivo" ──
+    if (ELEMENTS.competitiveLeagueMini) {
+      ELEMENTS.competitiveLeagueMini.innerHTML = rows.slice(0, 8).map((row, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+        return '<div class="competitive-mini-row">' +
+          '<span>' + medal + ' @' + (row.username || '—') + '</span>' +
+          '<strong>' + (row.trophies ?? '—') + ' 🏆</strong>' +
+          '<em>' + (row.leagueLabel || row.league_label || row.arena_name || '—') + '</em>' +
+          '</div>';
+      }).join('');
+    }
+  }
+
   function renderArenaSidebar(snapshot) {
     if (ELEMENTS.arenaCurrentName) ELEMENTS.arenaCurrentName.textContent = snapshot.arena.name;
     if (ELEMENTS.arenaCurrentTrophies) ELEMENTS.arenaCurrentTrophies.textContent = String(snapshot.trophies);
@@ -4792,6 +5547,9 @@
     if (sectionId === 'leaderboard') {
       void syncRemoteLeaderboard({ allowNullOriginPing: true, limit: 20 });
     }
+    if (sectionId === 'leagues' || sectionId === 'competitive') {
+      void syncCompetitiveLeaderboard({ limit: 50 });
+    }
   }
 
   function pauseTest() {
@@ -4809,7 +5567,7 @@
   }
 
   function applyTheme(theme) {
-    document.body.className = 'dark-mode theme-' + theme;
+    document.body.className = 'theme-' + theme;
   }
 
   function updateThemeButtons() {
@@ -4825,7 +5583,8 @@
     }
 
     const tabEnterCombo = e.key === 'Enter' && (Date.now() - STATE.lastTabPressAt) <= 1500;
-    const tabSpaceCombo = e.key === ' ' && (Date.now() - STATE.lastTabPressAt) <= 1500;
+    // tabSpaceCombo only when NOT in an active test — avoids restarting when first Space is pressed
+    const tabSpaceCombo = e.key === ' ' && !STATE.isTestActive && (Date.now() - STATE.lastTabPressAt) <= 1500;
     if ((e.key === 'Enter' && e.ctrlKey) || tabEnterCombo || tabSpaceCombo) {
       e.preventDefault();
       triggerQuickRestart();
