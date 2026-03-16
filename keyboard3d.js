@@ -1,637 +1,552 @@
 /* ================================================================
    TypeHub — Integración Teclado 3D
-   Renderer propio con Canvas 2D + proyección isométrica.
-   Sin dependencias externas — cero CDNs, cero descargas.
+   Renderer Canvas 2D con proyección isométrica. Sin dependencias.
 
-   API pública expuesta en window.Keyboard3D:
+   API pública (window.Keyboard3D):
      init3DKeyboard()           — monta la escena
      destroy3DKeyboard()        — desmonta escena y listeners
-     update3DKeyboardOnKey(key) — anima la tecla indicada (string)
+     update3DKeyboardOnKey(key) — anima una tecla (string)
    ================================================================ */
 
 (function (global) {
   'use strict';
 
-  /* ================================================================
-     LAYOUT QWERTY
-     Cada fila es un array de { label, w } donde w = ancho en unidades.
-     1u = ancho estándar de una tecla.
-     ================================================================ */
+  /* ── Layout QWERTY ────────────────────────────────────────────
+     l = etiqueta visible, w = ancho en unidades (1u = tecla estándar)
+  ──────────────────────────────────────────────────────────────── */
   var ROWS = [
-    [
-      {l:'`',w:1},{l:'1',w:1},{l:'2',w:1},{l:'3',w:1},{l:'4',w:1},
-      {l:'5',w:1},{l:'6',w:1},{l:'7',w:1},{l:'8',w:1},{l:'9',w:1},
-      {l:'0',w:1},{l:'-',w:1},{l:'=',w:1},{l:'⌫',w:2}
-    ],
-    [
-      {l:'Tab',w:1.5},{l:'q',w:1},{l:'w',w:1},{l:'e',w:1},{l:'r',w:1},
-      {l:'t',w:1},{l:'y',w:1},{l:'u',w:1},{l:'i',w:1},{l:'o',w:1},
-      {l:'p',w:1},{l:'[',w:1},{l:']',w:1},{l:'\\',w:1.5}
-    ],
-    [
-      {l:'Caps',w:1.75},{l:'a',w:1},{l:'s',w:1},{l:'d',w:1},{l:'f',w:1},
-      {l:'g',w:1},{l:'h',w:1},{l:'j',w:1},{l:'k',w:1},{l:'l',w:1},
-      {l:';',w:1},{l:"'",w:1},{l:'↵',w:2.25}
-    ],
-    [
-      {l:'Shift',w:2.25},{l:'z',w:1},{l:'x',w:1},{l:'c',w:1},{l:'v',w:1},
-      {l:'b',w:1},{l:'n',w:1},{l:'m',w:1},{l:',',w:1},{l:'.',w:1},
-      {l:'/',w:1},{l:'Shift',w:2.25}
-    ],
-    [
-      {l:'Ctrl',w:1.25},{l:'Alt',w:1.25},{l:'Space',w:6.25},
-      {l:'Alt',w:1.25},{l:'Ctrl',w:1.25}
-    ]
+    [{l:'`',w:1},{l:'1',w:1},{l:'2',w:1},{l:'3',w:1},{l:'4',w:1},{l:'5',w:1},
+     {l:'6',w:1},{l:'7',w:1},{l:'8',w:1},{l:'9',w:1},{l:'0',w:1},{l:'-',w:1},
+     {l:'=',w:1},{l:'⌫',w:2}],
+    [{l:'Tab',w:1.5},{l:'q',w:1},{l:'w',w:1},{l:'e',w:1},{l:'r',w:1},
+     {l:'t',w:1},{l:'y',w:1},{l:'u',w:1},{l:'i',w:1},{l:'o',w:1},{l:'p',w:1},
+     {l:'[',w:1},{l:']',w:1},{l:'\\',w:1.5}],
+    [{l:'Caps',w:1.75},{l:'a',w:1},{l:'s',w:1},{l:'d',w:1},{l:'f',w:1},
+     {l:'g',w:1},{l:'h',w:1},{l:'j',w:1},{l:'k',w:1},{l:'l',w:1},
+     {l:';',w:1},{l:"'",w:1},{l:'↵',w:2.25}],
+    [{l:'Shift',w:2.25},{l:'z',w:1},{l:'x',w:1},{l:'c',w:1},{l:'v',w:1},
+     {l:'b',w:1},{l:'n',w:1},{l:'m',w:1},{l:',',w:1},{l:'.',w:1},
+     {l:'/',w:1},{l:'Shift',w:2.25}],
+    [{l:'Ctrl',w:1.25},{l:'Alt',w:1.25},{l:'Space',w:6.25},
+     {l:'Alt',w:1.25},{l:'Ctrl',w:1.25}]
   ];
 
-  /* ── Mapa de teclas del DOM a etiquetas del layout ──────────── */
+  /* ── Mapa DOM key → etiqueta del layout ─────────────────────── */
   var KEY_MAP = {
-    ' ':         'Space',
-    'Backspace': '⌫',
-    'Enter':     '↵',
-    'Tab':       'Tab',
-    'CapsLock':  'Caps',
-    'Control':   'Ctrl',
-    'Alt':       'Alt',
-    'Shift':     'Shift',
-    'Meta':      'Ctrl',
+    ' ':'Space','Backspace':'⌫','Enter':'↵','Tab':'Tab',
+    'CapsLock':'Caps','Control':'Ctrl','Alt':'Alt','Shift':'Shift','Meta':'Ctrl'
   };
 
-  function normalizeKey(key) {
-    if (!key) return null;
-    if (KEY_MAP[key])      return KEY_MAP[key];
-    if (key.length === 1)  return key.toLowerCase();
+  function normalizeKey(k) {
+    if (!k) return null;
+    if (KEY_MAP[k]) return KEY_MAP[k];
+    if (k.length === 1) return k.toLowerCase();
     return null;
   }
 
-  /* ================================================================
-     LEER CSS VARS
-     ================================================================ */
-  var _tmp = null;
+  /* ── Helpers de color ─────────────────────────────────────────
+     Leemos los CSS vars y los convertimos a [r,g,b] para operar.
+  ──────────────────────────────────────────────────────────────── */
+  var _colorDiv = null;
+
   function cssVar(name) {
     return getComputedStyle(document.body).getPropertyValue(name).trim();
   }
 
-  function cssColorToRgb(css) {
-    if (!_tmp) { _tmp = document.createElement('div'); _tmp.style.display='none'; document.body.appendChild(_tmp); }
-    _tmp.style.color = css;
-    var c = getComputedStyle(_tmp).color;
+  function cssToRgb(css) {
+    if (!_colorDiv) {
+      _colorDiv = document.createElement('div');
+      _colorDiv.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;';
+      document.body.appendChild(_colorDiv);
+    }
+    _colorDiv.style.color = css;
+    var c = getComputedStyle(_colorDiv).color;          // "rgb(r, g, b)"
     var m = c.match(/[\d.]+/g);
-    if (!m) return [58,60,64];
-    return [parseInt(m[0]), parseInt(m[1]), parseInt(m[2])];
+    return m ? [+m[0], +m[1], +m[2]] : [80, 80, 80];
   }
 
-  function rgbStr(arr, alpha) {
-    if (alpha !== undefined) return 'rgba('+arr[0]+','+arr[1]+','+arr[2]+','+alpha+')';
-    return 'rgb('+arr[0]+','+arr[1]+','+arr[2]+')';
-  }
-
-  function mixRgb(a, b, t) {
+  function mix(a, b, t) {
     return [
-      Math.round(a[0] + (b[0]-a[0])*t),
-      Math.round(a[1] + (b[1]-a[1])*t),
-      Math.round(a[2] + (b[2]-a[2])*t)
+      Math.round(a[0]+(b[0]-a[0])*t) | 0,
+      Math.round(a[1]+(b[1]-a[1])*t) | 0,
+      Math.round(a[2]+(b[2]-a[2])*t) | 0
     ];
   }
 
-  function lighten(rgb, amt) { return mixRgb(rgb, [255,255,255], amt); }
-  function darken(rgb, amt)  { return mixRgb(rgb, [0,0,0], amt); }
+  function lighter(c, a) { return mix(c, [255,255,255], a); }
+  function darker(c, a)   { return mix(c, [0,0,0], a); }
 
-  var COLORS = {};
-  function readColors() {
-    var bg3     = cssColorToRgb(cssVar('--bg-3'));
-    var surface = cssColorToRgb(cssVar('--surface'));
-    var accent  = cssColorToRgb(cssVar('--accent'));
-    var textSub = cssColorToRgb(cssVar('--text-sub'));
-    var text    = cssColorToRgb(cssVar('--text'));
-
-    COLORS = {
-      base:        bg3,
-      baseTop:     lighten(bg3, 0.06),
-      keycap:      surface,
-      keycapTop:   lighten(surface, 0.14),
-      keycapLeft:  darken(surface, 0.22),
-      keycapFront: darken(surface, 0.12),
-      legend:      textSub,
-      legendActive:text,
-      accent:      accent,
-      accentTop:   lighten(accent, 0.20),
-      accentLeft:  darken(accent, 0.25),
-      accentFront: darken(accent, 0.15),
-      shadow:      darken(bg3, 0.35),
-    };
+  function rgb(c, alpha) {
+    if (alpha !== undefined) return 'rgba('+c[0]+','+c[1]+','+c[2]+','+alpha+')';
+    return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
   }
 
-  /* ================================================================
-     ESTADO INTERNO
-     ================================================================ */
-  var _canvas      = null;
-  var _ctx         = null;
-  var _container   = null;
-  var _animFrame   = null;
-  var _initialized = false;
-  var _resizeObs   = null;
-  var _themeObs    = null;
+  /* Paleta activa — se rellena en readColors() */
+  var C = {};
 
-  // Teclas actualmente presionadas: { label: pressTime (ms) }
-  var _pressed     = {};
-  var PRESS_DUR    = 180; // ms que dura el efecto "hundida"
+  function readColors() {
+    var bg      = cssToRgb(cssVar('--bg-3'));
+    var surface = cssToRgb(cssVar('--surface'));
+    var accent  = cssToRgb(cssVar('--accent'));
+    var sub     = cssToRgb(cssVar('--text-sub'));
+    var text    = cssToRgb(cssVar('--text'));
 
-  // Dimensiones de la escena calculadas en buildLayout()
-  var _keys        = []; // [{ label, col, row, w, x, y, pressed }]
-  var _layoutW     = 0;  // ancho total en unidades
-  var _layoutH     = 0;  // alto total en unidades
+    C.bg       = bg;
+    C.bgLight  = lighter(bg, 0.10);
+    C.bgDark   = darker(bg,  0.18);
 
-  /* ================================================================
-     PROYECCIÓN ISOMÉTRICA SIMPLIFICADA
-     Usamos un eje axonométrico suave:
-       x_screen =  (x - z) * cos30
-       y_screen = -(x + z) * sin30 + y  (y = altura, sube al presionar)
-     donde x,z son posición horizontal/profundidad, y = elevación.
-     ================================================================ */
-  var ISO_SCALE = 1; // se recalcula en resize
+    C.top      = lighter(surface, 0.18);
+    C.front    = darker(surface,  0.14);
+    C.side     = darker(surface,  0.26);
 
-  // Ángulo de visión: ligera inclinación top-down
-  var AX = Math.cos(Math.PI / 6) * 0.55;  // factor X horizontal
-  var AZ = Math.sin(Math.PI / 6) * 0.42;  // factor Z vertical (profundidad)
+    C.aTop     = lighter(accent, 0.20);
+    C.aFront   = darker(accent,  0.18);
+    C.aSide    = darker(accent,  0.32);
 
-  function isoProject(wx, wz, wy, scale) {
-    // wx = posición X en unidades, wz = profundidad, wy = elevación
-    var sx = (wx - wz * 0.3) * scale;
-    var sy = (-wy - wz * AZ - wx * 0.08) * scale;
+    C.legend   = sub;
+    C.legAct   = text;
+    C.accent   = accent;
+    C.shadow   = darker(bg, 0.40);
+
+    C.baseTop  = lighter(bg, 0.07);
+    C.baseFr   = darker(bg,  0.22);
+    C.baseSide = darker(bg,  0.32);
+  }
+
+  /* ── Geometría de la escena ───────────────────────────────────
+     Unidades del mundo: 1u = 1 tecla estándar (~18mm físicos)
+     GAP   = espacio entre teclas
+     KEY_H = altura visible del keycap (cara superior sobre la base)
+     BASE  = grosor de la base del teclado
+  ──────────────────────────────────────────────────────────────── */
+  var GAP   = 0.09;
+  var KEY_H = 0.26;
+  var BASE  = 0.20;
+
+  /* ── Proyección axonométrica ──────────────────────────────────
+     wx,wz = posición en el plano del teclado (horizontal, profundidad)
+     wy    = altura (positivo = arriba)
+     Devuelve {x,y} en píxeles (sin escala ni offset aplicados todavía)
+  ──────────────────────────────────────────────────────────────── */
+  function proj(wx, wz, wy) {
+    // Ángulo de visión: ~25° inclinación, ligeramente desde la derecha
+    var sx =  wx * 0.90 - wz * 0.22;
+    var sy = -wy * 0.90 - wx * 0.10 - wz * 0.55;
     return { x: sx, y: sy };
   }
 
-  /* ================================================================
-     CONSTRUCCIÓN DEL LAYOUT
-     ================================================================ */
-  var UNIT = 1;       // 1 unidad del mundo
-  var GAP  = 0.08;    // espacio entre teclas
-  var KEY_H_3D = 0.22; // altura del keycap (cara superior vs frontal)
-  var KEY_DEPTH = 0.72; // profundidad visual de cada tecla
+  /* ── Datos del layout calculados ────────────────────────────── */
+  var _keys   = [];  // [{label, x, z, w, pressed, pressT}]
+  var _layoutW = 0;
+  var _layoutH = 0;
 
   function buildLayout() {
     _keys = [];
-    var rowCount = ROWS.length;
-    // Fila más ancha para centrado
     var maxW = 0;
-    ROWS.forEach(function(row) {
-      var w = row.reduce(function(acc,k){ return acc + k.w + GAP; }, -GAP);
-      if (w > maxW) maxW = w;
+
+    /* Calcular ancho de cada fila */
+    var rowWidths = ROWS.map(function(row) {
+      return row.reduce(function(acc, k) { return acc + k.w; }, 0) + (row.length - 1) * GAP;
     });
+    rowWidths.forEach(function(w) { if (w > maxW) maxW = w; });
     _layoutW = maxW;
-    _layoutH = rowCount * (UNIT + GAP) - GAP;
+    _layoutH = ROWS.length + (ROWS.length - 1) * GAP;
 
     ROWS.forEach(function(row, ri) {
-      var rowW = row.reduce(function(acc,k){ return acc + k.w + GAP; }, -GAP);
-      var xOff = (maxW - rowW) / 2; // centrar filas más cortas
-      var zPos = ri * (UNIT + GAP);
+      /* Centrar la fila respecto a la más ancha */
+      var xOff = (maxW - rowWidths[ri]) / 2;
+      var zPos = ri * (1 + GAP);
 
       row.forEach(function(key) {
         _keys.push({
-          label: key.l,
-          x:     xOff + key.w / 2,  // centro X
-          z:     zPos + UNIT / 2,    // centro Z (profundidad)
-          w:     key.w,
+          label:   key.l,
+          x:       xOff + key.w / 2,   // centro X de la tecla
+          z:       zPos + 0.5,          // centro Z de la tecla (profundidad)
+          w:       key.w,
           pressed: false,
-          pressT: 0,
+          pressT:  0,
         });
         xOff += key.w + GAP;
       });
     });
   }
 
-  /* ================================================================
-     CÁLCULO DE ESCALA Y OFFSET PARA CENTRAR EN CANVAS
-     ================================================================ */
-  function computeTransform() {
-    var cw = _canvas.width;
-    var ch = _canvas.height;
+  /* ── Estado del canvas ────────────────────────────────────────*/
+  var _canvas  = null;
+  var _ctx     = null;
+  var _cont    = null;    // el div #keyboard3d-container
+  var _raf     = null;    // requestAnimationFrame handle
+  var _inited  = false;
+  var _dirty   = true;    // forzar primer frame
 
-    // Calcular bounding box de todos los puntos proyectados
-    var minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
-    var testScale = 40;
+  /* Transform para centrar todo el teclado en el canvas */
+  var _tx = { scale: 1, ox: 0, oy: 0 };
 
-    _keys.forEach(function(k) {
-      // 4 esquinas de la cara superior
-      var corners = [
-        [-k.w/2, 0, -UNIT/2],
-        [ k.w/2, 0, -UNIT/2],
-        [ k.w/2, 0,  UNIT/2],
-        [-k.w/2, 0,  UNIT/2],
-        // esquinas inferiores (frontal)
-        [-k.w/2, -KEY_H_3D - KEY_DEPTH*AZ*testScale/testScale, UNIT/2],
-        [ k.w/2, -KEY_H_3D - KEY_DEPTH*AZ*testScale/testScale, UNIT/2],
-      ];
-      corners.forEach(function(c) {
-        var p = isoProject(k.x + c[0], k.z + c[2], c[1], testScale);
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-      });
+  /* ── Calcular transform (escala + offset) ─────────────────────
+     Proyectamos todos los vértices con scale=1 para obtener el
+     bounding-box real, luego escalamos para llenar el canvas.
+  ──────────────────────────────────────────────────────────────── */
+  function computeTransform(cw, ch) {
+    var minX = Infinity, maxX = -Infinity;
+    var minY = Infinity, maxY = -Infinity;
+
+    function testPt(wx, wz, wy) {
+      var p = proj(wx, wz, wy);
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    /* Esquinas de la base completa */
+    var px = _layoutW / 2;
+    var pz = _layoutH / 2;
+    var pad = 0.30;
+    [
+      [-px-pad, -pz-pad, 0],  [px+pad, -pz-pad, 0],
+      [px+pad,  pz+pad,  0],  [-px-pad, pz+pad, 0],
+      [-px-pad, pz+pad, -BASE],[ px+pad, pz+pad, -BASE],
+      [px+pad, -pz-pad, KEY_H],[-px-pad, -pz-pad, KEY_H],
+    ].forEach(function(v) {
+      testPt(v[0] + px, v[1] + pz, v[2]);
     });
 
-    var bboxW = maxX - minX;
-    var bboxH = maxY - minY;
-    var padding = 0.88; // margen
-    var scale = Math.min(cw / bboxW, ch / bboxH) * padding;
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw === 0 || bh === 0) return;
 
-    // Centro del canvas
-    var cx = cw / 2 - (minX + bboxW/2) * scale;
-    var cy = ch / 2 - (minY + bboxH/2) * scale;
+    var margin = 0.86;
+    var scale  = Math.min(cw / bw, ch / bh) * margin;
 
-    return { scale: scale, cx: cx, cy: cy };
+    /* Centrar: el origen del mundo (0,0,0) queda en (ox,oy) */
+    _tx.scale = scale;
+    _tx.ox    = cw / 2 - ((minX + maxX) / 2) * scale;
+    _tx.oy    = ch / 2 - ((minY + maxY) / 2) * scale;
   }
 
-  var _transform = null;
+  /* Helper: convierte coordenadas del mundo → píxeles del canvas */
+  function wp(wx, wz, wy) {
+    var p = proj(wx, wz, wy);
+    return { x: p.x * _tx.scale + _tx.ox, y: p.y * _tx.scale + _tx.oy };
+  }
 
-  /* ================================================================
-     DIBUJO DE UNA TECLA
-     ================================================================ */
-  function drawKey(ctx, key, tx, scale) {
-    var t = Date.now();
+  /* ── Resize ───────────────────────────────────────────────────*/
+  function resize() {
+    if (!_cont || !_canvas) return;
+    var dpr = Math.min(global.devicePixelRatio || 1, 2);
+    var cw  = _cont.clientWidth  || 900;
+    var ch  = _cont.clientHeight || 260;
+
+    /* Dimensiones físicas del canvas (sin acumular la escala DPI) */
+    _canvas.width  = Math.round(cw * dpr);
+    _canvas.height = Math.round(ch * dpr);
+    _canvas.style.width  = cw + 'px';
+    _canvas.style.height = ch + 'px';
+
+    /* Guardamos resolución lógica para los cálculos */
+    _canvas._lw = cw;
+    _canvas._lh = ch;
+    _canvas._dpr = dpr;
+
+    computeTransform(cw, ch);
+    _dirty = true;
+  }
+
+  /* ── Fondo ────────────────────────────────────────────────────*/
+  function drawBg(ctx, lw, lh) {
+    var g = ctx.createRadialGradient(lw*0.5, lh*0.45, 0, lw*0.5, lh*0.5, lw*0.65);
+    g.addColorStop(0,   rgb(C.bgLight));
+    g.addColorStop(0.7, rgb(C.bg));
+    g.addColorStop(1,   rgb(C.bgDark));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, lw, lh);
+  }
+
+  /* ── Base del teclado ─────────────────────────────────────────*/
+  function drawBase(ctx) {
+    var pad = 0.30;
+    var x0 = 0    - pad;
+    var x1 = _layoutW + pad;
+    var z0 = 0    - pad;
+    var z1 = _layoutH + pad;
+    var yT = 0;      /* cara superior de la base */
+    var yB = -BASE;  /* cara inferior */
+
+    var TL = wp(x0,z0,yT), TR = wp(x1,z0,yT);
+    var BR = wp(x1,z1,yT), BL = wp(x0,z1,yT);
+    var FL = wp(x0,z1,yB), FR = wp(x1,z1,yB);
+    var RL = wp(x1,z0,yB);
+
+    /* Cara frontal */
+    ctx.beginPath();
+    ctx.moveTo(BL.x,BL.y); ctx.lineTo(BR.x,BR.y);
+    ctx.lineTo(FR.x,FR.y); ctx.lineTo(FL.x,FL.y);
+    ctx.closePath();
+    ctx.fillStyle = rgb(C.baseFr);
+    ctx.fill();
+
+    /* Cara lateral derecha */
+    ctx.beginPath();
+    ctx.moveTo(TR.x,TR.y); ctx.lineTo(BR.x,BR.y);
+    ctx.lineTo(FR.x,FR.y); ctx.lineTo(RL.x,RL.y);
+    ctx.closePath();
+    ctx.fillStyle = rgb(C.baseSide);
+    ctx.fill();
+
+    /* Cara superior */
+    ctx.beginPath();
+    ctx.moveTo(TL.x,TL.y); ctx.lineTo(TR.x,TR.y);
+    ctx.lineTo(BR.x,BR.y); ctx.lineTo(BL.x,BL.y);
+    ctx.closePath();
+    ctx.fillStyle = rgb(C.baseTop);
+    ctx.fill();
+  }
+
+  /* ── Tecla individual ─────────────────────────────────────────*/
+  var PRESS_DUR  = 200;   // ms que dura la animación de press
+  var PRESS_SINK = 0.12;  // cuánto se hunde (unidades del mundo)
+
+  function drawKey(ctx, key, now) {
+    /* Calcular presión (0…1) con ease-out */
     var pressAmt = 0;
     if (key.pressed) {
-      var elapsed = t - key.pressT;
+      var elapsed = now - key.pressT;
       if (elapsed < PRESS_DUR) {
-        // ease-in-out
-        var pct = elapsed / PRESS_DUR;
-        pressAmt = pct < 0.5
-          ? 2 * pct * pct
-          : 1 - Math.pow(-2*pct+2,2)/2;
-        pressAmt = Math.min(pressAmt, 1);
+        var t = elapsed / PRESS_DUR;
+        /* ease-out cuadrática: sube rápido, baja suave */
+        pressAmt = t < 0.3
+          ? (t / 0.3)
+          : 1 - ((t - 0.3) / 0.7);
+        pressAmt = Math.max(0, Math.min(1, pressAmt));
       } else {
         key.pressed = false;
-        pressAmt = 0;
       }
     }
 
-    var PRESS_SINK = 0.10 * pressAmt; // cuánto se hunde la tecla
+    var isPressed = pressAmt > 0.01;
+    var sink = PRESS_SINK * pressAmt;
 
-    var kw = key.w;
-    var kd = UNIT;       // profundidad de la tecla
-    var kh = KEY_H_3D - PRESS_SINK;  // altura del keycap
+    var kw  = key.w;
+    var kd  = 1;           /* profundidad de la tecla = 1u */
+    var yTop = KEY_H - sink;  /* cara superior */
+    var yBot = 0;          /* base del keycap */
 
-    var x = key.x;
-    var z = key.z;
-    var y = kh; // elevación base (la cara superior está en y=kh)
+    var x  = key.x;
+    var z  = key.z;
+    var hw = kw / 2;
+    var hd = kd / 2;
 
-    // ── Proyectar las 8 esquinas del keycap ──────────────────────
-    // Cara superior (y = kh)
-    var tl = isoProject(x - kw/2, z - kd/2, y, scale);
-    var tr = isoProject(x + kw/2, z - kd/2, y, scale);
-    var br = isoProject(x + kw/2, z + kd/2, y, scale);
-    var bl = isoProject(x - kw/2, z + kd/2, y, scale);
+    /* 4 esquinas de la cara superior */
+    var TL = wp(x-hw, z-hd, yTop);
+    var TR = wp(x+hw, z-hd, yTop);
+    var BR = wp(x+hw, z+hd, yTop);
+    var BL = wp(x-hw, z+hd, yTop);
 
-    // Cara frontal inferior (y = 0)
-    var fl = isoProject(x - kw/2, z + kd/2, 0, scale);
-    var fr = isoProject(x + kw/2, z + kd/2, 0, scale);
+    /* Aristas inferiores visibles */
+    var FL = wp(x-hw, z+hd, yBot);
+    var FR = wp(x+hw, z+hd, yBot);
+    var RB = wp(x+hw, z-hd, yBot);
 
-    // Cara lateral derecha (y = 0)
-    var rl = isoProject(x + kw/2, z - kd/2, 0, scale);
-
-    // Offset de traslación
-    var ox = tx.cx;
-    var oy = tx.cy;
-
-    var C = key.pressed ? COLORS.accent : COLORS.keycap;
-    var Ct = key.pressed ? COLORS.accentTop   : COLORS.keycapTop;
-    var Cl = key.pressed ? COLORS.accentLeft  : COLORS.keycapLeft;
-    var Cf = key.pressed ? COLORS.accentFront : COLORS.keycapFront;
-
-    // ── Sombra proyectada (muy sutil) ────────────────────────────
+    /* ── Sombra ─────────────────────────────────────────────── */
+    var sOff = (KEY_H - sink) * _tx.scale * 0.18;
     ctx.save();
-    ctx.globalAlpha = 0.18 - pressAmt * 0.10;
-    ctx.fillStyle = rgbStr(COLORS.shadow);
+    ctx.globalAlpha = 0.15 * (1 - pressAmt * 0.5);
+    ctx.fillStyle = rgb(C.shadow);
     ctx.beginPath();
-    ctx.moveTo(ox + bl.x + 2, oy + bl.y + 4);
-    ctx.lineTo(ox + br.x + 2, oy + br.y + 4);
-    ctx.lineTo(ox + fr.x + 2, oy + fr.y + 4);
-    ctx.lineTo(ox + fl.x + 2, oy + fl.y + 4);
+    ctx.moveTo(BL.x + sOff, BL.y + sOff);
+    ctx.lineTo(BR.x + sOff, BR.y + sOff);
+    ctx.lineTo(FR.x + sOff, FR.y + sOff);
+    ctx.lineTo(FL.x + sOff, FL.y + sOff);
     ctx.closePath();
     ctx.fill();
-    ctx.globalAlpha = 1;
     ctx.restore();
 
-    // ── Cara FRONTAL (facing viewer, parte inferior) ─────────────
+    /* ── Cara frontal ───────────────────────────────────────── */
     ctx.beginPath();
-    ctx.moveTo(ox + bl.x, oy + bl.y);
-    ctx.lineTo(ox + br.x, oy + br.y);
-    ctx.lineTo(ox + fr.x, oy + fr.y);
-    ctx.lineTo(ox + fl.x, oy + fl.y);
+    ctx.moveTo(BL.x,BL.y); ctx.lineTo(BR.x,BR.y);
+    ctx.lineTo(FR.x,FR.y); ctx.lineTo(FL.x,FL.y);
     ctx.closePath();
-    ctx.fillStyle = rgbStr(Cf);
+    ctx.fillStyle = rgb(isPressed ? C.aFront : C.front);
     ctx.fill();
 
-    // ── Cara DERECHA (lateral visible) ───────────────────────────
+    /* ── Cara lateral derecha ───────────────────────────────── */
     ctx.beginPath();
-    ctx.moveTo(ox + tr.x, oy + tr.y);
-    ctx.lineTo(ox + br.x, oy + br.y);
-    ctx.lineTo(ox + fr.x, oy + fr.y);
-    ctx.lineTo(ox + rl.x, oy + rl.y);
+    ctx.moveTo(TR.x,TR.y); ctx.lineTo(BR.x,BR.y);
+    ctx.lineTo(FR.x,FR.y); ctx.lineTo(RB.x,RB.y);
     ctx.closePath();
-    ctx.fillStyle = rgbStr(Cl);
+    ctx.fillStyle = rgb(isPressed ? C.aSide : C.side);
     ctx.fill();
 
-    // ── Cara SUPERIOR ─────────────────────────────────────────────
+    /* ── Cara superior (gradiente suave) ────────────────────── */
     ctx.beginPath();
-    ctx.moveTo(ox + tl.x, oy + tl.y);
-    ctx.lineTo(ox + tr.x, oy + tr.y);
-    ctx.lineTo(ox + br.x, oy + br.y);
-    ctx.lineTo(ox + bl.x, oy + bl.y);
+    ctx.moveTo(TL.x,TL.y); ctx.lineTo(TR.x,TR.y);
+    ctx.lineTo(BR.x,BR.y); ctx.lineTo(BL.x,BL.y);
     ctx.closePath();
 
-    // Gradiente sutil en la cara superior
-    var gx1 = ox + tl.x, gy1 = oy + tl.y;
-    var gx2 = ox + br.x, gy2 = oy + br.y;
     try {
-      var grad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
-      grad.addColorStop(0,   rgbStr(lighten(Ct, 0.08)));
-      grad.addColorStop(0.5, rgbStr(Ct));
-      grad.addColorStop(1,   rgbStr(darken(Ct, 0.06)));
-      ctx.fillStyle = grad;
+      var grd = ctx.createLinearGradient(TL.x, TL.y, BR.x, BR.y);
+      var topA = isPressed ? C.aTop : C.top;
+      grd.addColorStop(0,   rgb(lighter(topA, 0.08)));
+      grd.addColorStop(0.5, rgb(topA));
+      grd.addColorStop(1,   rgb(darker(topA,  0.06)));
+      ctx.fillStyle = grd;
     } catch(e) {
-      ctx.fillStyle = rgbStr(Ct);
+      ctx.fillStyle = rgb(isPressed ? C.aTop : C.top);
     }
     ctx.fill();
 
-    // ── Borde sutil en cara superior ──────────────────────────────
-    ctx.strokeStyle = rgbStr(darken(C, 0.35), 0.6);
-    ctx.lineWidth = 0.6;
-    ctx.beginPath();
-    ctx.moveTo(ox + tl.x, oy + tl.y);
-    ctx.lineTo(ox + tr.x, oy + tr.y);
-    ctx.lineTo(ox + br.x, oy + br.y);
-    ctx.lineTo(ox + bl.x, oy + bl.y);
-    ctx.closePath();
+    /* ── Borde fino ─────────────────────────────────────────── */
+    ctx.strokeStyle = rgb(darker(isPressed ? C.accent : C.top, 0.40), 0.55);
+    ctx.lineWidth   = 0.7;
     ctx.stroke();
 
-    // ── Leyenda (letra de la tecla) ───────────────────────────────
-    var labelColor = key.pressed ? rgbStr(COLORS.legendActive) : rgbStr(COLORS.legend);
-    // Centro de la cara superior
-    var cx2 = ox + (tl.x + tr.x + br.x + bl.x) / 4;
-    var cy2 = oy + (tl.y + tr.y + br.y + bl.y) / 4 - scale * 0.02;
+    /* ── Leyenda ────────────────────────────────────────────── */
+    var cx = (TL.x+TR.x+BR.x+BL.x)/4;
+    var cy = (TL.y+TR.y+BR.y+BL.y)/4 - _tx.scale * 0.025;
+    var fs = Math.max(8, Math.min(14, _tx.scale * 0.23));
 
-    var fontSize = Math.max(7, Math.min(scale * 0.22, 13));
-    ctx.font = '500 ' + fontSize + 'px JetBrains Mono, monospace';
-    ctx.fillStyle = labelColor;
-    ctx.textAlign = 'center';
+    ctx.font         = '500 ' + fs + 'px "JetBrains Mono",monospace';
+    ctx.fillStyle    = rgb(isPressed ? C.legAct : C.legend);
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
 
-    var label = key.label;
-    // Teclas largas: mostrar solo primer token
-    if (label === 'Space') label = '';
-    else if (label.length > 3) label = label.slice(0,4);
+    var lbl = key.label;
+    if (lbl === 'Space') lbl = '';
+    ctx.fillText(lbl, cx, cy);
 
-    ctx.fillText(label, cx2, cy2);
-
-    // ── Glow al presionar ─────────────────────────────────────────
+    /* ── Glow al presionar ──────────────────────────────────── */
     if (pressAmt > 0.05) {
       ctx.save();
-      ctx.globalAlpha = pressAmt * 0.35;
-      var glowGrad = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, scale * kw * 0.7);
-      glowGrad.addColorStop(0,   rgbStr(COLORS.accent, 0.7));
-      glowGrad.addColorStop(0.5, rgbStr(COLORS.accent, 0.25));
-      glowGrad.addColorStop(1,   rgbStr(COLORS.accent, 0));
-      ctx.fillStyle = glowGrad;
+      ctx.globalAlpha = pressAmt * 0.40;
+      var r  = _tx.scale * kw * 0.7;
+      var gl = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gl.addColorStop(0,   rgb(C.accent, 0.80));
+      gl.addColorStop(0.5, rgb(C.accent, 0.30));
+      gl.addColorStop(1,   rgb(C.accent, 0.00));
+      ctx.fillStyle = gl;
       ctx.beginPath();
-      ctx.moveTo(ox + tl.x, oy + tl.y);
-      ctx.lineTo(ox + tr.x, oy + tr.y);
-      ctx.lineTo(ox + br.x, oy + br.y);
-      ctx.lineTo(ox + bl.x, oy + bl.y);
+      ctx.moveTo(TL.x,TL.y); ctx.lineTo(TR.x,TR.y);
+      ctx.lineTo(BR.x,BR.y); ctx.lineTo(BL.x,BL.y);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
     }
   }
 
-  /* ================================================================
-     DIBUJO DE LA BASE DEL TECLADO
-     ================================================================ */
-  function drawBase(ctx, tx) {
-    var scale = tx.scale;
-    var ox = tx.cx, oy = tx.cy;
-    var pad = 0.28;
-    var bh  = 0.18; // grosor de la base
+  /* ── Loop de render ───────────────────────────────────────────*/
+  function frame() {
+    _raf = requestAnimationFrame(frame);
+    if (!_canvas || !_ctx) return;
 
-    var x1 = -pad, x2 = _layoutW + pad;
-    var z1 = -pad, z2 = _layoutH + pad;
+    var now      = Date.now();
+    var anyAnim  = _keys.some(function(k) { return k.pressed; });
+    if (!anyAnim && !_dirty) return;
+    _dirty = false;
 
-    // Cara superior de la base (nivel y=0)
-    var tl = isoProject(x1, z1, 0, scale);
-    var tr = isoProject(x2, z1, 0, scale);
-    var br = isoProject(x2, z2, 0, scale);
-    var bl = isoProject(x1, z2, 0, scale);
+    var dpr = _canvas._dpr || 1;
+    var lw  = _canvas._lw  || _canvas.width;
+    var lh  = _canvas._lh  || _canvas.height;
 
-    // Cara frontal
-    var fl = isoProject(x1, z2, -bh, scale);
-    var fr = isoProject(x2, z2, -bh, scale);
-    // Cara lateral derecha
-    var rl = isoProject(x2, z1, -bh, scale);
+    /* Reiniciar transform DPI para este frame (sin acumulación) */
+    _ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    _ctx.clearRect(0, 0, lw, lh);
 
-    // Cara frontal base
-    ctx.beginPath();
-    ctx.moveTo(ox+bl.x, oy+bl.y); ctx.lineTo(ox+br.x, oy+br.y);
-    ctx.lineTo(ox+fr.x, oy+fr.y); ctx.lineTo(ox+fl.x, oy+fl.y);
-    ctx.closePath();
-    ctx.fillStyle = rgbStr(darken(COLORS.base, 0.20));
-    ctx.fill();
+    drawBg(_ctx, lw, lh);
+    drawBase(_ctx);
 
-    // Cara lateral base
-    ctx.beginPath();
-    ctx.moveTo(ox+tr.x, oy+tr.y); ctx.lineTo(ox+br.x, oy+br.y);
-    ctx.lineTo(ox+fr.x, oy+fr.y); ctx.lineTo(ox+rl.x, oy+rl.y);
-    ctx.closePath();
-    ctx.fillStyle = rgbStr(darken(COLORS.base, 0.30));
-    ctx.fill();
-
-    // Cara superior base
-    ctx.beginPath();
-    ctx.moveTo(ox+tl.x, oy+tl.y); ctx.lineTo(ox+tr.x, oy+tr.y);
-    ctx.lineTo(ox+br.x, oy+br.y); ctx.lineTo(ox+bl.x, oy+bl.y);
-    ctx.closePath();
-    ctx.fillStyle = rgbStr(COLORS.baseTop);
-    ctx.fill();
-  }
-
-  /* ================================================================
-     FONDO CON GRADIENTE
-     ================================================================ */
-  function drawBackground(ctx) {
-    var w = _canvas.width, h = _canvas.height;
-    var grad = ctx.createRadialGradient(w*0.5, h*0.4, 0, w*0.5, h*0.5, w*0.7);
-    grad.addColorStop(0,   rgbStr(lighten(COLORS.base, 0.06)));
-    grad.addColorStop(0.6, rgbStr(COLORS.base));
-    grad.addColorStop(1,   rgbStr(darken(COLORS.base, 0.08)));
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-  }
-
-  /* ================================================================
-     LOOP DE RENDERIZADO
-     ================================================================ */
-  var _needsRedraw = true; // redibuja cuando hay pulsaciones
-
-  function renderFrame() {
-    _animFrame = requestAnimationFrame(renderFrame);
-
-    // Verificar si alguna tecla está animándose
-    var anyActive = false;
-    _keys.forEach(function(k) { if (k.pressed) anyActive = true; });
-
-    if (!anyActive && !_needsRedraw) return;
-    _needsRedraw = false;
-
-    var ctx = _ctx;
-    var tx  = _transform;
-    if (!ctx || !tx) return;
-
-    ctx.clearRect(0, 0, _canvas.width, _canvas.height);
-    drawBackground(ctx);
-    drawBase(ctx, tx);
-
-    // Dibujar teclas de atrás hacia adelante (orden Z)
+    /* Ordenar de atrás a delante (menor z primero = fila de arriba) */
     var sorted = _keys.slice().sort(function(a,b){ return a.z - b.z; });
-    sorted.forEach(function(key) { drawKey(ctx, key, tx, tx.scale); });
+    sorted.forEach(function(k) { drawKey(_ctx, k, now); });
+
+    /* Seguir animando mientras haya teclas en movimiento */
+    if (anyAnim) _dirty = true;
   }
 
-  /* ================================================================
-     PRESIONAR TECLA
-     ================================================================ */
+  /* ── Presionar tecla ──────────────────────────────────────────*/
   function pressKey(label) {
+    var found = false;
     _keys.forEach(function(k) {
       if (k.label === label) {
         k.pressed = true;
         k.pressT  = Date.now();
+        found = true;
       }
     });
-    _needsRedraw = true;
-
-    // Programar liberación visual
-    setTimeout(function() { _needsRedraw = true; }, PRESS_DUR + 20);
+    if (found) _dirty = true;
   }
 
-  /* ================================================================
-     RESIZE
-     ================================================================ */
-  function onResize() {
-    if (!_container || !_canvas) return;
-    var w = _container.clientWidth  || 900;
-    var h = _container.clientHeight || 260;
-    var dpr = Math.min(global.devicePixelRatio || 1, 2);
-    _canvas.width  = w * dpr;
-    _canvas.height = h * dpr;
-    _canvas.style.width  = w + 'px';
-    _canvas.style.height = h + 'px';
-    _ctx.scale(dpr, dpr);
-    _transform   = computeTransform();
-    _needsRedraw = true;
-  }
+  /* ── Observers ────────────────────────────────────────────────*/
+  var _resObs   = null;
+  var _themeObs = null;
 
-  /* ================================================================
-     TEMA: observar cambios en body.classList
-     ================================================================ */
   function watchTheme() {
-    if (_themeObs) _themeObs.disconnect();
     _themeObs = new MutationObserver(function() {
       readColors();
-      if (_container) _container.dataset.theme = getTheme();
-      _needsRedraw = true;
+      _dirty = true;
     });
     _themeObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
 
-  function getTheme() {
-    var c = document.body.classList;
-    if (c.contains('theme-nord'))    return 'nord';
-    if (c.contains('theme-dracula')) return 'dracula';
-    if (c.contains('theme-monokai')) return 'monokai';
-    if (c.contains('theme-light'))   return 'light';
-    return 'serika';
-  }
-
-  /* ================================================================
-     LISTENER DE TECLADO
-     ================================================================ */
+  /* ── Listener teclado ─────────────────────────────────────────*/
   function _onKeyDown(e) {
-    if (!_initialized) return;
-    var label = normalizeKey(e.key);
-    if (label) pressKey(label);
+    if (!_inited) return;
+    var lbl = normalizeKey(e.key);
+    if (lbl) pressKey(lbl);
   }
 
   /* ================================================================
      API PÚBLICA
-     ================================================================ */
+  ================================================================ */
 
-  /**
-   * init3DKeyboard()
-   * Monta el canvas isométrico dentro de #keyboard3d-container.
-   */
   function init3DKeyboard() {
-    if (_initialized) return;
+    if (_inited) return;
 
-    _container = document.getElementById('keyboard3d-container');
-    if (!_container) { console.warn('[Keyboard3D] #keyboard3d-container no encontrado'); return; }
+    _cont = document.getElementById('keyboard3d-container');
+    if (!_cont) { console.warn('[Keyboard3D] #keyboard3d-container no encontrado'); return; }
 
     readColors();
     buildLayout();
 
-    // Crear canvas
+    /* Crear canvas */
     _canvas = document.createElement('canvas');
-    _canvas.style.display = 'block';
-    _canvas.style.width   = '100%';
-    _canvas.style.height  = '100%';
-    _container.appendChild(_canvas);
+    _canvas.style.cssText = 'display:block;width:100%;height:100%;';
+    _cont.appendChild(_canvas);
     _ctx = _canvas.getContext('2d');
 
-    onResize();
-    renderFrame();
+    /* Primera medida */
+    resize();
 
-    // Resize observer
-    _resizeObs = new ResizeObserver(function() { onResize(); });
-    _resizeObs.observe(_container);
+    /* Loop */
+    frame();
 
-    // Tema
+    /* Observers */
+    _resObs = new ResizeObserver(function() { resize(); });
+    _resObs.observe(_cont);
+
     watchTheme();
-    _container.dataset.theme = getTheme();
 
-    // Teclado
     document.addEventListener('keydown', _onKeyDown, { passive: true });
 
-    _initialized = true;
-    console.log('[Keyboard3D] Listo — renderer Canvas 2D isométrico.');
+    _inited = true;
+    console.log('[Keyboard3D] Listo (Canvas 2D isométrico, sin dependencias).');
   }
 
-  /**
-   * update3DKeyboardOnKey(key)
-   * Anima la tecla dada (puede llamarse desde fuera).
-   */
   function update3DKeyboardOnKey(key) {
-    if (!_initialized) return;
-    pressKey(key);
+    if (_inited) pressKey(key);
   }
 
-  /**
-   * destroy3DKeyboard()
-   * Desmonta la escena y libera recursos.
-   */
   function destroy3DKeyboard() {
-    if (!_initialized) return;
-
-    cancelAnimationFrame(_animFrame);
+    if (!_inited) return;
+    cancelAnimationFrame(_raf);
     document.removeEventListener('keydown', _onKeyDown);
-    if (_resizeObs) { _resizeObs.disconnect(); _resizeObs = null; }
-    if (_themeObs)  { _themeObs.disconnect();  _themeObs  = null; }
-
+    if (_resObs)   { _resObs.disconnect();   _resObs   = null; }
+    if (_themeObs) { _themeObs.disconnect(); _themeObs = null; }
     if (_canvas && _canvas.parentNode) _canvas.parentNode.removeChild(_canvas);
-    if (_tmp && _tmp.parentNode) { _tmp.parentNode.removeChild(_tmp); _tmp = null; }
-
-    _canvas = _ctx = _container = null;
+    if (_colorDiv && _colorDiv.parentNode) { _colorDiv.parentNode.removeChild(_colorDiv); _colorDiv = null; }
+    _canvas = _ctx = _cont = null;
     _keys   = [];
-    _pressed = {};
-    _transform = null;
-    _initialized = false;
+    _inited = false;
+    _dirty  = true;
     console.log('[Keyboard3D] Destruido.');
   }
 
