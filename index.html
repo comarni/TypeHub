@@ -1505,8 +1505,8 @@
 
   <script src="script.js"></script>
 
-  <!-- Integración Teclado 3D TypeHub — Three.js + módulo keyboard3d -->
-  <!-- Three.js se carga solo cuando el usuario activa el toggle (lazy) -->
+  <!-- Integración Teclado 3D TypeHub — módulo keyboard3d (sin dependencias) -->
+  <script src="keyboard3d.js"></script>
   <script id="keyboard3d-module-script">
     (function () {
       /* ── Lógica del toggle de Teclado 3D ───────────────────────────
@@ -1514,12 +1514,10 @@
          No interfiere con STATE ni con ninguna función del test.
       ──────────────────────────────────────────────────────────────── */
 
-      var toggle        = document.getElementById('keyboard3dToggle');
-      var container     = document.getElementById('keyboard3d-container');
-      var styleRow      = document.getElementById('keyboard3dStyleRow');
-      var styleBtns     = document.querySelectorAll('.keyboard3d-style-btn');
-      var THREE_LOADED  = false;
-      var THREE_LOADING = false;
+      var toggle    = document.getElementById('keyboard3dToggle');
+      var container = document.getElementById('keyboard3d-container');
+      var styleRow  = document.getElementById('keyboard3dStyleRow');
+      var styleBtns = document.querySelectorAll('.keyboard3d-style-btn');
 
       if (!toggle || !container) return; // Guard: sección no encontrada
 
@@ -1530,44 +1528,14 @@
         enableKeyboard3D();
       }
 
-      /* ── Carga diferida de Three.js ──────────────────────────── */
-      function loadThreeJS(callback) {
-        if (THREE_LOADED) { callback(); return; }
-        if (THREE_LOADING) { /* esperar */ setTimeout(function () { loadThreeJS(callback); }, 100); return; }
-        THREE_LOADING = true;
-
-        var script = document.createElement('script');
-        // Three.js r165 — CDN jsDelivr (UMD build, sin módulos ES)
-        script.src = 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js';
-        script.onload = function () {
-          THREE_LOADED  = true;
-          THREE_LOADING = false;
-          /* Cargar el módulo del teclado 3D */
-          var kbScript = document.createElement('script');
-          kbScript.src = 'keyboard3d.js';
-          kbScript.onload = function () { callback(); };
-          kbScript.onerror = function () { console.error('[Keyboard3D] No se pudo cargar keyboard3d.js'); };
-          document.body.appendChild(kbScript);
-        };
-        script.onerror = function () {
-          THREE_LOADING = false;
-          console.error('[Keyboard3D] No se pudo cargar Three.js desde CDN.');
-          alert('Teclado 3D no disponible: no se pudo cargar Three.js. Comprueba tu conexión a internet.');
-          toggle.checked = false;
-        };
-        document.body.appendChild(script);
-      }
-
       /* ── Activar ─────────────────────────────────────────────── */
       function enableKeyboard3D() {
         container.style.display = 'block';
         if (styleRow) styleRow.style.display = 'flex';
 
-        loadThreeJS(function () {
-          if (window.Keyboard3D && window.Keyboard3D.init3DKeyboard) {
-            window.Keyboard3D.init3DKeyboard();
-          }
-        });
+        if (window.Keyboard3D && window.Keyboard3D.init3DKeyboard) {
+          window.Keyboard3D.init3DKeyboard();
+        }
 
         localStorage.setItem('keyboard3dEnabled', 'true');
       }
