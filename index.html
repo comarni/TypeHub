@@ -1153,8 +1153,8 @@
           </div>
         </div>
 
-        <div class="profile-block">
-          <h3>All-Time English Leaderboards</h3>
+        <div class="profile-block profile-block--pbs" id="profilePbsBlock">
+          <h3>Mejores marcas personales</h3>
           <div class="pb-grid" id="personalBestsGrid">
             <div class="pb-card"><div>15 seconds</div><strong id="pb15">- -</strong><small id="pb15Date">-</small></div>
             <div class="pb-card"><div>30 seconds</div><strong id="pb30">- -</strong><small id="pb30Date">-</small></div>
@@ -1166,18 +1166,14 @@
 
         
 
-        <div class="profile-block">
-          <h3>filters</h3>
+        <div class="profile-block profile-block--filters" id="profileFiltersBlock">
+          <h3>Filtros</h3>
           <div class="filter-presets">
-            <button class="filter-chip active">all</button>
-            <button class="filter-chip">current settings</button>
-            <button class="filter-chip">advanced</button>
-            <button class="filter-chip">save as preset</button>
-            <button class="filter-chip">last day</button>
-            <button class="filter-chip">last week</button>
-            <button class="filter-chip">last month</button>
-            <button class="filter-chip">last 3 months</button>
-            <button class="filter-chip">all time</button>
+            <button class="filter-chip active" data-range="all">todo</button>
+            <button class="filter-chip" data-range="last-day">último día</button>
+            <button class="filter-chip" data-range="last-week">última semana</button>
+            <button class="filter-chip" data-range="last-month">último mes</button>
+            <button class="filter-chip" data-range="last-3months">3 meses</button>
           </div>
           <div class="filters-grid">
             <div class="filter-box" data-filter="date">
@@ -1212,14 +1208,9 @@
               <span class="filter-box-title">Language</span>
               <select id="filterLanguage"><option value="all">all</option><option value="es">spanish</option><option value="en">english</option><option value="fr">french</option><option value="de">german</option><option value="pt">portuguese</option></select>
             </div>
-            <div class="filter-box" data-filter="funbox">
-              <span class="filter-box-title">Funbox</span>
-              <select id="filterFunbox"><option value="all">all</option></select>
-            </div>
-            <div class="filter-box" data-filter="tags">
-              <span class="filter-box-title">Tags</span>
-              <select id="filterTags"><option value="all">all</option></select>
-            </div>
+            <!-- Funbox / Tags: sin datos reales aún, ocultos -->
+            <select id="filterFunbox" style="display:none"></select>
+            <select id="filterTags" style="display:none"></select>
           </div>
         </div>
 

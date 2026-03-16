@@ -1559,8 +1559,10 @@
   }
 
   function setLeaderboardSyncDebug(value) {
+    // Send to console only — don't show raw debug info in the UI
+    if (value) console.debug('[TypeHub] leaderboard sync:', value);
     if (!ELEMENTS.leaderboardSyncDebug) return;
-    ELEMENTS.leaderboardSyncDebug.textContent = value || '';
+    ELEMENTS.leaderboardSyncDebug.textContent = ''; // always clear visible debug
   }
 
   function escapeHtml(value) {
@@ -1792,7 +1794,7 @@
     if (isNullOriginRuntime()) {
       const userIdForPing = getCurrentRemoteUserId();
       if (opts.allowNullOriginPing && userIdForPing) {
-        setProfileSyncDebug('sync profile: file:// ping-only | userId=' + userIdForPing);
+        console.debug('[TypeHub] syncRemoteProfile: file:// ping-only | userId=' + userIdForPing);
         await Promise.allSettled(
           PROFILE_WEBHOOK_BASE_URLS.map(async baseUrl => {
             const candidates = buildProfileCandidateUrls(baseUrl, userIdForPing);
@@ -1858,7 +1860,9 @@
           ' | success=' + String(parsed.success) +
           ' | statusCode=' + Number(parsed.statusCode || 0);
       });
-      setProfileSyncDebug(debugLines.join('\n'));
+      // Keep debug info in console only — not visible to users
+      console.debug('[TypeHub] syncRemoteProfile debug:', debugLines.join(' | '));
+      setProfileSyncDebug('');
 
       const successResult = results.find(result => {
         if (result.status !== 'fulfilled' || !result.value) return false;
@@ -1871,7 +1875,6 @@
       });
       if (all404) {
         profileSyncRetryAfter = Date.now() + 60000;
-        setProfileSyncDebug((ELEMENTS.profileSyncDebug ? ELEMENTS.profileSyncDebug.textContent + '\n' : '') + 'todos los endpoints devolvieron 404');
         return { ok: false, reason: 'endpoint-404' };
       }
 
@@ -1954,12 +1957,13 @@
       const syncedAt = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const usedUrl = successResult.value && successResult.value.url ? successResult.value.url : '';
       setProfileSyncMeta('Actualizado desde n8n · ' + syncedAt + (usedUrl ? (' · ' + usedUrl) : ''));
-      setProfileSyncDebug((ELEMENTS.profileSyncDebug ? ELEMENTS.profileSyncDebug.textContent + '\n' : '') + 'payload user=' + JSON.stringify(parsed.payload.user));
+      // Clear debug on success — don't expose raw payload to the user
+      setProfileSyncDebug('');
       displayProfile();
       return { ok: true, reason: 'synced', sourceUrl: usedUrl };
     } catch (_) {
       // Si falla el sync remoto, mantenemos perfil local sin bloquear la app.
-      setProfileSyncDebug('sync profile: exception no controlada');
+      console.warn('[TypeHub] syncRemoteProfile: excepción no controlada');
       return { ok: false, reason: 'exception' };
     } finally {
       profileSyncInFlight = false;
@@ -2005,6 +2009,13 @@
     if (ELEMENTS.versusOnlineWinRate) ELEMENTS.versusOnlineWinRate.textContent = stats.versusOnlineWinRate.toFixed(1) + '%';
 
     renderPersonalBests(tests);
+
+    // Show/hide data-dependent blocks
+    const hasTests = tests.length > 0;
+    const pbsBlock     = document.getElementById('profilePbsBlock');
+    const filtersBlock = document.getElementById('profileFiltersBlock');
+    if (pbsBlock)     pbsBlock.classList.toggle('profile-block--empty', !hasTests);
+    if (filtersBlock) filtersBlock.classList.toggle('profile-block--empty', !hasTests);
 
     const range = ELEMENTS.activityRangeSelect ? ELEMENTS.activityRangeSelect.value : '12months';
     const testsInRange = applyAdvancedFilters(getTestsInRange(tests, range));
@@ -5542,6 +5553,8 @@
       renderLanguagesSection();
     }
     if (sectionId === 'profile') {
+      // Render local stats immediately, then sync remote in background
+      if (STATE.currentUser) displayProfile();
       void syncRemoteProfile({ allowNullOriginPing: true });
     }
     if (sectionId === 'leaderboard') {
